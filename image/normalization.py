@@ -23,4 +23,15 @@ def normalize_image(image, forward=True, mean=[0.485, 0.456, 0.406],std=[0.229, 
     if isinstance(image, tf.Variable):
         mean = tf.Variable(mean, trainable=False)
         std = tf.Variable(std, trainable=False)
+    if forward:
+        if len(im_size) == 3:
+            result = tf.subtract(image,tf.divide(tf.tile(mean,im_size), tf.tile(std, im_size)))
+        elif len(im_size) == 4:
+            result = tf.subtract(image,tf.divide(tf.tile(tf.expand_dims(mean,0),im_size), tf.tile(tf.expand_dims(std,0), im_size)))
+    else:
+        if len(im_size) == 3:
+            result = tf.multiply(image,tf.add(tf.tile(mean,im_size), tf.tile(std, im_size)))
+        elif len(im_size) == 4:
+            result = tf.multiply(image,tf.add(tf.tile(tf.expand_dims(mean,0),im_size), tf.tile(tf.expand_dims(std,0), im_size)))
 
+    return result
