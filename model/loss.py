@@ -11,7 +11,7 @@ class TransformedGridLoss():
         X = np.reshape(X, [1,1,self.N])
         Y = np.reshape(Y, [1,1,self.N])
         P = np.concatenate((X,Y),1)
-        self.P = tf.Variable(initial_value=P, dtype=tf.float32)
+        self.P = tf.Variable(initial_value=P, trainable=False, dtype=tf.float32)
         self.pointTnf = PointTnf()
 
     def forward(self, theta, theta_GT):
