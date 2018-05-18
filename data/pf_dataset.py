@@ -4,10 +4,9 @@ import tensorflow as tf
 from skimage import io
 import pandas as pd
 import numpy as np
-from torch.utils.data import Dataset
 from geotnf.transformation import GeometricTnf
 
-class PFDataset(Dataset):
+class PFDataset():
     
     """
     
@@ -48,7 +47,7 @@ class PFDataset(Dataset):
         point_B_coords = self.get_points(self.point_B_coords,idx)
         
         # compute PCK reference length L_pck (equal to max bounding box side in image_A)
-        L_pck = torch.FloatTensor([torch.max(point_A_coords.max(1)[0]-point_A_coords.min(1)[0])])
+        L_pck = tf.Variable([tf.maximum(point_A_coords.max(1)[0]-point_A_coords.min(1)[0])], dtype=tf.float32)
                 
         sample = {'source_image': image_A, 'target_image': image_B, 'source_im_size': im_size_A, 'target_im_size': im_size_B, 'source_points': point_A_coords, 'target_points': point_B_coords, 'L_pck': L_pck}
         
@@ -66,13 +65,13 @@ class PFDataset(Dataset):
         
         # convert to torch Variable
         image = np.expand_dims(image.transpose((2,0,1)),0)
-        image = torch.Tensor(image.astype(np.float32))
-        image_var = Variable(image,requires_grad=False)
+        image = tf.Variable(image.astype(np.float32), dtype=tf.float32)
+        image_var = tf.Variable(image,trainable=False)
         
         # Resize image using bilinear sampling with identity affine tnf
-        image = self.affineTnf(image_var).data.squeeze(0)
+        image = tf.squeeze(self.affineTnf(image_var), 0)
         
-        im_size = torch.Tensor(im_size.astype(np.float32))
+        im_size = tf.Variable(im_size, dtype=tf.float32)
         
         return (image, im_size)
     
@@ -83,6 +82,6 @@ class PFDataset(Dataset):
 #        point_coords = point_coords[[1,0],:]
 
         # make arrays float tensor for subsequent processing
-        point_coords = torch.Tensor(point_coords.astype(np.float32))
+        point_coords = tf.Variable(point_coords, dtype=tf.float32)
         return point_coords
     

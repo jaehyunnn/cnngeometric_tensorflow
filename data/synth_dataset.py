@@ -1,15 +1,13 @@
 from __future__ import print_function, division
-import torch
+import tensorflow as tf
 import os
 from os.path import exists, join, basename
 from skimage import io
 import pandas as pd
 import numpy as np
-from torch.utils.data import Dataset
 from geotnf.transformation import GeometricTnf
-from torch.autograd import Variable
 
-class SynthDataset(Dataset):
+class SynthDataset():
     """
     
     Synthetically transformed pairs dataset for training with strong supervision
@@ -40,7 +38,7 @@ class SynthDataset(Dataset):
         self.training_image_path = training_image_path
         self.transform = transform
         self.geometric_model = geometric_model
-        self.affineTnf = GeometricTnf(out_h=self.out_h, out_w=self.out_w, use_cuda = False) 
+        self.affineTnf = GeometricTnf(out_h=self.out_h, out_w=self.out_w)
         
     def __len__(self):
         return len(self.train_data)
@@ -58,8 +56,6 @@ class SynthDataset(Dataset):
                 # reshape theta to 2x3 matrix [A|t] where 
                 # first row corresponds to X and second to Y
                 theta = theta[[3,2,5,1,0,4]].reshape(2,3)
-            elif self.geometric_model=='tps':
-                theta = np.expand_dims(np.expand_dims(theta,1),2)
         else:
             if self.geometric_model=='affine':
                 alpha = (np.random.rand(1)-0.5)*2*np.pi*self.random_alpha
@@ -70,21 +66,18 @@ class SynthDataset(Dataset):
                 theta[3]=(1+(theta[3]-0.5)*2*self.random_s)*np.sin(alpha)
                 theta[4]=(1+(theta[4]-0.5)*2*self.random_s)*np.cos(alpha)
                 theta = theta.reshape(2,3)
-            if self.geometric_model=='tps':
-                theta = np.array([-1 , -1 , -1 , 0 , 0 , 0 , 1 , 1 , 1 , -1 , 0 , 1 , -1 , 0 , 1 , -1 , 0 , 1])
-                theta = theta+(np.random.rand(18)-0.5)*2*self.random_t_tps               
         
         # make arrays float tensor for subsequent processing
-        image = torch.Tensor(image.astype(np.float32))
-        theta = torch.Tensor(theta.astype(np.float32))
+        image = tf.Variable(image, dtype=tf.float32)
+        theta = tf.Variable(theta, dtype=tf.float32)
         
         # permute order of image to CHW
-        image = image.transpose(1,2).transpose(0,1)
+        image = tf.transpose(image,[2,0,1])
                 
         # Resize image using bilinear sampling with identity affine tnf
         if image.size()[0]!=self.out_h or image.size()[1]!=self.out_w:
-            image = self.affineTnf(Variable(image.unsqueeze(0),requires_grad=False)).data.squeeze(0)
-                
+            image = self.affineTnf(tf.Variable(tf.expand_dims(image, dim=0), trainable=False))
+            image = tf.squeeze(image, 0)
         sample = {'image': image, 'theta': theta}
         
         if self.transform:
