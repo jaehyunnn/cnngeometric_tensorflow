@@ -4,19 +4,17 @@ from os import makedirs, remove
 from os.path import exists, join, basename, dirname
 
 
-class BatchTensorToVars(object):
+class BatchTensorToVars:
     """Convert tensors in dict batch to vars
     """
-
     def __init__(self):
-
+        pass
     def __call__(self, batch):
         batch_var = {}
         for key, value in batch.items():
             batch_var[key] = tf.Variable(value, trainable=False)
 
         return batch_var
-
 
 def save_checkpoint(state, is_best, file):
     model_dir = dirname(file)

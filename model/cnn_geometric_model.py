@@ -1,9 +1,9 @@
 import tensorflow as tf
 import numpy as np
-import tensorflow.contrib.slim.nets
+import tensorflow.contrib.slim as slim
 
-vgg = tf.contrib.slim.nets.vgg
-resnet_v2 = tf.contrib.slim.nets.resnet_v2
+vgg = slim.nets.vgg
+resnet_v2 = slim.nets.resnet_v2
 
 class FeatureExtraction():
     def __init__(self, trainable=False, feature_extraction_cnn='vgg', normalization=True):

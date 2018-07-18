@@ -14,7 +14,7 @@ class TransformedGridLoss():
         self.P = tf.Variable(initial_value=P, trainable=False, dtype=tf.float32)
         self.pointTnf = PointTnf()
 
-    def forward(self, theta, theta_GT):
+    def __call__(self, theta, theta_GT):
         batch_size = theta.shape[0]
         P = tf.tile(self.P, [batch_size,2,400])
 
