@@ -1,32 +1,39 @@
 import tensorflow as tf
 import numpy as np
-import tensorflow.contrib.slim as slim
+import tensorflow.contrib.slim.nets as nets
 
-vgg = slim.nets.vgg
-resnet_v2 = slim.nets.resnet_v2
+vgg = nets.vgg
+resnet = nets.resnet_v2
 
-class FeatureExtraction():
-    def __init__(self, trainable=False, feature_extraction_cnn='vgg', normalization=True):
-        self.normalization = normalization
-
+class FeatureExtraction:
+    def __init__(self, trainable=False, feature_extraction_cnn='vgg'):
         if feature_extraction_cnn == 'vgg':
             self.model = vgg
 
         if feature_extraction_cnn == 'resnet_v2':
-            self.model = resnet_v2
+            self.model = resnet
 
-    def forward(self, batch_size):
-        features = self.model.ru
-        if self.normalization:
-            features = tf.nn.l2_normalize(features, epsilon=(1e-6))
+    def __call__(self, image_batch):
+        if self.model == vgg:
+            features,_ = self.model.vgg_16(inputs=image_batch)
+
+        if self.model == resnet:
+            features,_ = self.model.resnet_v2_101(inputs=image_batch)
+
         return features
 
-class FeatureCorrelation():
-    def __init__(self, dim='3D', normalization=True):
-        self.normalization = normalization
-        self.dim = dim
+class FeatureL2Norm:
+    def __init__(self):
+        pass
+    def __call__(self, features):
+        features = tf.nn.l2_normalize(features, epsilon=(1e-6))
 
-    def forward(self, feature_A, feature_B):
+
+class FeatureCorrelation:
+    def __init__(self):
+        pass
+
+    def __call__(self, feature_A, feature_B):
         """
         :param b: batch_size
         :param c: channel(amount of filters)
@@ -34,27 +41,16 @@ class FeatureCorrelation():
         :param w: width
         :return:
         """
-        b,c,h,w = feature_A.shape
-        if self.dim == '3D':
-            feature_A = tf.transpose(feature_A, [0,1,3,2])
-            feature_A = tf.reshape(feature_A, [b,c,h*w])
-            feature_B = tf.reshape(feature_B, [b,c,h*w])
-            feature_B = tf.transpose(feature_B, [0,2,1])
+        b,h,w,c = feature_A.shape
 
-            feature_mul = tf.matmul(feature_B,feature_A)
-            correlation_tensor = tf.reshape(feature_mul, [b,h,w,h*w])
-            correlation_tensor = tf.transpose(correlation_tensor, [0,2,3,1])
-        elif self.dim =='4D':
-            feature_A = tf.reshape(feature_A, [b,c,h*w])
-            feature_A = tf.transpose(feature_A, [0,2,1])
-            feature_B = tf.reshape(feature_B, [b,c,h*w])
+        feature_A = tf.transpose(feature_A, [0,2,1,3])
+        feature_A = tf.reshape(feature_A, [b,h*w,c])
 
-            feature_mul = tf.matmul(feature_A, feature_B)
-            correlation_tensor = tf.reshape(b,h,w,h*w)
-            correlation_tensor = tf.expand_dims(correlation_tensor, dim=1)
+        feature_B = tf.reshape(feature_B, [b,h*w,c])
+        feature_B = tf.transpose(feature_B, [0,2,1])
 
-        if self.normalization:
-            correlation_tensor = tf.nn.l2_normalize(correlation_tensor, epsilon=(1e-6))
+        feature_mul = tf.matmul(feature_B,feature_A)
+        correlation_tensor = tf.reshape(feature_mul, [b,h,w,h*w])
 
         return correlation_tensor
 
@@ -66,7 +62,7 @@ class FeatureRegression():
         self.channels = channels
         self.feature_size = feature_size
 
-    def forward(self, x):
+    def __call__(self, x):
         conv1 = tf.layers.conv2d(inputs=x, kernel_size=[self.kernel_sizes[0],self.kernel_sizes[0]], filters=self.channels[0], padding='SAME', activation=None)
         if self.batch_normalization:
             conv1 = tf.layers.batch_normalization(conv1)
@@ -82,7 +78,7 @@ class FeatureRegression():
 
         return out
 
-class CNNGeometric():
+class CNNGeometric:
     def __init__(self, output_dim=6,
                  feature_extraction_cnn='vgg',
                  return_correlation=False,
@@ -98,24 +94,29 @@ class CNNGeometric():
         self.normalize_matches = normalize_matches
         self.return_correlation = return_correlation
         self.FeatureExtraction = FeatureExtraction(trainable=trainable,
-                                                   feature_extraction_cnn=feature_extraction_cnn,
-                                                   normalization=normalize_features)
-        self.FeatureCorrelation = FeatureCorrelation(dim='3D', normalization=normalize_matches)
+                                                   feature_extraction_cnn=feature_extraction_cnn)
+        self.FeatureCorrelation = FeatureCorrelation
         self.FeatureRegression = FeatureRegression(output_dim=output_dim,
                                                    feature_size=fr_feature_size,
                                                    kernel_sizes=fr_kernel_sizes,
                                                    channels=fr_channels,
                                                    batch_normalization=batch_normalization)
 
-    def forward(self, tnf_batch):
-        feature_A = self.FeatureExtraction.forward(tnf_batch['source image'])
-        feature_B = self.FeatureExtraction.forward(tnf_batch['target image'])
+    def __call__(self, tnf_batch):
+        # do feature extraction
+        feature_A = self.FeatureExtraction(tnf_batch['source_image'])
+        feature_B = self.FeatureExtraction(tnf_batch['target_image'])
+        # normalize
+        if self.normalize_features:
+            feature_A = self.FeatureL2Norm(feature_A)
+            feature_B = self.FeatureL2Norm(feature_B)
+        # do feature correlation
+        correlation = self.FeatureCorrelation(feature_A, feature_B)
+        # normalize
+        if self.normalize_matches:
+            correlation = self.FeatureL2Norm(tf.nn.relu(correlation))
+        #        correlation = self.FeatureL2Norm(correlation)
+        # do regression to tnf parameters theta
+        theta = self.FeatureRegression(correlation)
 
-        correlation = self.FeatureCorrelation.forward(feature_A, feature_B)
-
-        theta = self.FeatureRegression.forward(correlation)
-
-        if self.return_correlation:
-            return (theta, correlation)
-        else:
-            return theta
+        return theta
