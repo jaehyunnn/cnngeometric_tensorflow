@@ -16,27 +16,28 @@ class GeometricTnf:
         self.theta_identity = tf.Variable(initial_value=np.expand_dims(np.array([[1,0,0],[0,1,0]]),0).astype(np.float32))
 
     def __call__(self, image_batch, theta_batch=None, padding_factor=1.0, crop_factor=1.0):
-        b, h, w, c = tf.shape(image_batch)
+        b, h, w, c = image_batch.get_shape()
         if theta_batch is None:
             theta_batch = self.theta_identity
-            theta_batch = tf.tile(theta_batch, [b,2,3])
+            theta_batch = tf.tile(theta_batch, [b,1,1])
             theta_batch = tf.Variable(theta_batch, trainable=False)
 
         sampling_grid = self.gridGen(theta_batch)
 
-        x_s = sampling_grid[:, 0, :, :]  # transform 된 x좌표
-        y_s = sampling_grid[:, 1, :, :]  # transform 된 y좌표
+        x_s = sampling_grid[:, 0, :, :]*padding_factor*crop_factor  # transform 된 x좌표
+        y_s = sampling_grid[:, 1, :, :]*padding_factor*crop_factor  # transform 된 y좌표
 
+        """
         # rescale grid according to crop_factor and padding_factor
         sampling_grid.data = sampling_grid.data*padding_factor*crop_factor
+        """
         # sample transformed image
         warped_image_batch = self.bilinear_sampler(image_batch, x_s, y_s)
 
         return warped_image_batch
 
     def get_pixel_value(self, img, x, y):
-        B, H, W, C = tf.shape(img)
-
+        B, H, W, C = img.get_shape()
         batch_idx = tf.range(0, B)
         batch_idx = tf.reshape(batch_idx, (B, 1, 1))  # axis 1,2에 expand_dims 한것과 같음
         b = tf.tile(batch_idx, (1, H, W))
@@ -47,7 +48,7 @@ class GeometricTnf:
         return pixel_value
 
     def bilinear_sampler(self, img, x, y):
-        B, H, W, C = tf.shape(img)
+        B, H, W, C = img.get_shape()
 
         max_y = tf.cast(H - 1, 'int32')
         max_x = tf.cast(W - 1, 'int32')
@@ -110,7 +111,7 @@ class SynthPairTnf:
     def __call__(self, batch):
         image_batch, theta_batch = batch['image'], batch['theta']
 
-        b, c, h, w = tf.shape(image_batch)
+        b, h, w, c = image_batch.get_shape()
 
         # generate symmetrically padded image for bigger sampling region
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
@@ -129,7 +130,7 @@ class SynthPairTnf:
         return {'source_image': cropped_image_batch, 'target_image': warped_image_batch, 'theta_GT': theta_batch}
 
     def symmetricImagePad(self, image_batch, padding_factor):
-        b, c, h, w = tf.reshape(image_batch)
+        b, h, w, c = image_batch.get_shape()
         pad_h, pad_w = int(h * padding_factor), int(w * padding_factor)
         idx_pad_left = tf.Variable(range(pad_w-1,-1,-1), dtype=tf.int64)
         idx_pad_right = tf.Variable(range(w-1,w-pad_w-1,-1), dtype=tf.int64)
@@ -150,8 +151,8 @@ class AffineGridGen:
         self.out_ch = out_ch
 
     def __call__(self, theta):
-        batch_size = tf.shape(theta)[0]
-        out_size = [batch_size, self.out_h, self.out_w, self.out_c]
+        batch_size = theta.get_shape()[0]
+        out_size = [batch_size, self.out_h, self.out_w, self.out_ch]
 
         # create normalized 2D grid
         x = tf.linspace(-1.0, 1.0, self.out_w)
@@ -172,7 +173,7 @@ class AffineGridGen:
 
         # cast to float32 (required for matmul)
         theta = tf.cast(theta, 'float32')
-        sampling_grid = tf.cast(sampling_grid, ' float32')
+        sampling_grid = tf.cast(sampling_grid, 'float32')
 
         # transform the sampling grid - batch multiply
         batch_grids = tf.matmul(theta, sampling_grid)  # batch_grids 는 transform 된 좌표값
