@@ -1,8 +1,9 @@
 import tensorflow as tf
-import tensorflow.contrib.slim.nets as nets
-
-vgg = nets.vgg
-resnet = nets.resnet_v2
+from tensorflow.contrib.slim.python.slim.nets import resnet_v2 as resnet
+from tensorflow.contrib.slim.python.slim.nets import vgg
+from tensorflow.python.util.all_util import make_all
+import tensorflow.contrib.slim as slim
+from model.resnet_modified import resnet_v2_101_modified as resnet_modified
 
 class FeatureExtraction:
     def __init__(self, trainable=False, feature_extraction_cnn='vgg'):
@@ -14,10 +15,12 @@ class FeatureExtraction:
 
     def __call__(self, image_batch):
         if self.model == vgg:
-            features,_ = self.model.vgg_16(inputs=image_batch)
+            with slim.arg_scope(vgg.vgg_arg_scope()):
+                features,_ = self.model.vgg_16(inputs=image_batch)
 
         if self.model == resnet:
-            features,_ = self.model.resnet_v2_101(inputs=image_batch)
+            with slim.arg_scope(resnet.resnet_arg_scope()):
+                features,_ = resnet_modified(inputs=image_batch,num_classes=None)
 
         return features
 
@@ -26,7 +29,7 @@ class FeatureL2Norm:
         pass
     def __call__(self, features):
         features = tf.nn.l2_normalize(features, epsilon=(1e-6))
-
+        return features
 
 class FeatureCorrelation:
     def __init__(self):
@@ -40,7 +43,10 @@ class FeatureCorrelation:
         :param w: width
         :return:
         """
-        b,h,w,c = feature_A.shape
+        #feature_A = tf.reshape(feature_A, [-1,2,2,512])
+        #feature_B = tf.reshape(feature_B, [-1,2,2,512])
+        b,h,w,c = feature_A.get_shape()
+
 
         feature_A = tf.transpose(feature_A, [0,2,1,3])
         feature_A = tf.reshape(feature_A, [b,h*w,c])
@@ -48,12 +54,12 @@ class FeatureCorrelation:
         feature_B = tf.reshape(feature_B, [b,h*w,c])
         feature_B = tf.transpose(feature_B, [0,2,1])
 
-        feature_mul = tf.matmul(feature_B,feature_A)
+        feature_mul = tf.matmul(feature_A, feature_B)
         correlation_tensor = tf.reshape(feature_mul, [b,h,w,h*w])
 
         return correlation_tensor
 
-class FeatureRegression():
+class FeatureRegression:
     def __init__(self, output_dim=6, batch_normalization=True, kernel_sizes=[7,5], channels=[128,64], feature_size=15):
         self.output_dim = output_dim
         self.batch_normalization = batch_normalization
@@ -94,12 +100,13 @@ class CNNGeometric:
         self.return_correlation = return_correlation
         self.FeatureExtraction = FeatureExtraction(trainable=trainable,
                                                    feature_extraction_cnn=feature_extraction_cnn)
-        self.FeatureCorrelation = FeatureCorrelation
+        self.FeatureCorrelation = FeatureCorrelation()
         self.FeatureRegression = FeatureRegression(output_dim=output_dim,
                                                    feature_size=fr_feature_size,
                                                    kernel_sizes=fr_kernel_sizes,
                                                    channels=fr_channels,
                                                    batch_normalization=batch_normalization)
+        self.FeatureL2Norm = FeatureL2Norm()
 
     def __call__(self, tnf_batch):
         # do feature extraction

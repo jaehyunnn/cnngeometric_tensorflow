@@ -16,17 +16,18 @@ class GeometricTnf:
         self.theta_identity = tf.Variable(initial_value=np.expand_dims(np.array([[1,0,0],[0,1,0]]),0).astype(np.float32))
 
     def __call__(self, image_batch, theta_batch=None, padding_factor=1.0, crop_factor=1.0):
-        b, h, w, c = image_batch.get_shape()
+        B, H, W, C = image_batch.get_shape()
         if theta_batch is None:
             theta_batch = self.theta_identity
-            theta_batch = tf.tile(theta_batch, [b,1,1])
+            theta_batch = tf.tile(theta_batch, [B,1,1])
             theta_batch = tf.Variable(theta_batch, trainable=False)
 
         sampling_grid = self.gridGen(theta_batch)
 
         x_s = sampling_grid[:, 0, :, :]*padding_factor*crop_factor  # transform 된 x좌표
+        #x_s = tf.tile(tf.expand_dims(x_s,3), [1, 1, 1, C])
         y_s = sampling_grid[:, 1, :, :]*padding_factor*crop_factor  # transform 된 y좌표
-
+        #y_s = tf.tile(tf.expand_dims(y_s,3), [1, 1, 1, C])
         """
         # rescale grid according to crop_factor and padding_factor
         sampling_grid.data = sampling_grid.data*padding_factor*crop_factor
@@ -40,7 +41,7 @@ class GeometricTnf:
         B, H, W, C = img.get_shape()
         batch_idx = tf.range(0, B)
         batch_idx = tf.reshape(batch_idx, (B, 1, 1))  # axis 1,2에 expand_dims 한것과 같음
-        b = tf.tile(batch_idx, (1, H, W))
+        b = tf.tile(batch_idx, (1, x.shape[1], x.shape[2]))
 
         indices = tf.stack([b, y, x], 3)
         pixel_value = tf.gather_nd(img, indices)
@@ -79,7 +80,6 @@ class GeometricTnf:
         Ib = self.get_pixel_value(img, x0, y1)
         Ic = self.get_pixel_value(img, x1, y0)
         Id = self.get_pixel_value(img, x1, y1)
-
         # recast as float for delta calculation
         x0 = tf.cast(x0, 'float32')
         x1 = tf.cast(x1, 'float32')
@@ -91,6 +91,11 @@ class GeometricTnf:
         wb = (x1 - x) * (y - y0)
         wc = (x - x0) * (y1 - y)
         wd = (x - x0) * (y - y0)
+
+        wa = tf.tile(tf.expand_dims(wa, 3), [1, 1, 1, C])
+        wb = tf.tile(tf.expand_dims(wb, 3), [1, 1, 1, C])
+        wc = tf.tile(tf.expand_dims(wc, 3), [1, 1, 1, C])
+        wd = tf.tile(tf.expand_dims(wd, 3), [1, 1, 1, C])
 
         # compute output
         out = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
@@ -111,7 +116,7 @@ class SynthPairTnf:
     def __call__(self, batch):
         image_batch, theta_batch = batch['image'], batch['theta']
 
-        b, h, w, c = image_batch.get_shape()
+        B, H, W, C = image_batch.get_shape()
 
         # generate symmetrically padded image for bigger sampling region
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
@@ -130,12 +135,12 @@ class SynthPairTnf:
         return {'source_image': cropped_image_batch, 'target_image': warped_image_batch, 'theta_GT': theta_batch}
 
     def symmetricImagePad(self, image_batch, padding_factor):
-        b, h, w, c = image_batch.get_shape()
-        pad_h, pad_w = int(h * padding_factor), int(w * padding_factor)
+        B, H, W, C = image_batch.get_shape()
+        pad_h, pad_w = int(H * padding_factor), int(W * padding_factor)
         idx_pad_left = tf.Variable(range(pad_w-1,-1,-1), dtype=tf.int64)
-        idx_pad_right = tf.Variable(range(w-1,w-pad_w-1,-1), dtype=tf.int64)
+        idx_pad_right = tf.Variable(range(W-1,W-pad_w-1,-1), dtype=tf.int64)
         idx_pad_top = tf.Variable(range(pad_h-1,-1,-1), dtype=tf.int64)
-        idx_pad_bottom = tf.Variable(range(h-1,h-pad_h-1,-1), dtype=tf.int64)
+        idx_pad_bottom = tf.Variable(range(H-1,H-pad_h-1,-1), dtype=tf.int64)
 
         image_batch = tf.concat((image_batch.index_select(3, idx_pad_left), image_batch,
                                  image_batch.index_select(3, idx_pad_right)), axis=3)
