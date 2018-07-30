@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from geotnf.point_tnf import PointTnf
+from geotnf.point_tnf_complete import PointTnf
 
 class TransformedGridLoss():
     def __init__(self, geometric_model='affine', grid_size=20):
@@ -16,7 +16,7 @@ class TransformedGridLoss():
 
     def __call__(self, theta, theta_GT):
         batch_size = theta.shape[0]
-        P = tf.tile(self.P, [batch_size,2,400])
+        P = tf.tile(self.P, [-1,1,1])
 
         if self.geometric_model == "affine":
             P_prime = self.pointTnf.affPointTnf(theta, P)

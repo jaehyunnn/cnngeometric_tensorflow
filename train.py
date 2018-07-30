@@ -12,6 +12,7 @@ from geotnf.transformation_complete import SynthPairTnf
 from image.normalization_complete import NormalizeImageDict
 from util.train_test_fn import train, test
 from util.tf_util_complete import save_checkpoint, str_to_bool
+from random import choice
 
 """
 
@@ -42,8 +43,8 @@ parser.add_argument('--geometric-model', type=str, default='affine',
                     help='geometric model to be regressed at output: affine or tps')
 parser.add_argument('--use-mse-loss', type=str_to_bool, nargs='?', const=True, default=False,
                     help='Use MSE loss on tnf. parameters')
-parser.add_argument('--feature-extraction-cnn', type=str, default='vgg',
-                    help='Feature extraction architecture: vgg/resnet101')
+parser.add_argument('--feature-extraction-cnn', type=str, default='resnet_v2',
+                    help='Feature extraction architecture: vgg/resnet_v2')
 # Synthetic dataset parameters
 parser.add_argument('--random-sample', type=str_to_bool, nargs='?', const=True, default=False,
                     help='sample random transformations')
@@ -66,8 +67,7 @@ if args.training_dataset == 'pascal':
 # CNN model and loss
 print('Creating CNN model...')
 
-model = CNNGeometric(geometric_model=args.geometric_model,
-                     feature_extraction_cnn=args.feature_extraction_cnn)
+model = CNNGeometric(feature_extraction_cnn=args.feature_extraction_cnn)
 
 if args.use_mse_loss:
     print('Using MSE loss...')
@@ -77,12 +77,13 @@ else:
     loss = TransformedGridLoss(geometric_model=args.geometric_model)
 
 # Dataset and dataloader
+print('\nMaking dataset...')
+
 dataset = SynthDataset(geometric_model=args.geometric_model,
                        csv_file=os.path.join(args.training_tnf_csv, 'train.csv'),
                        training_image_path=args.training_image_path,
                        transform=NormalizeImageDict(['image']),
                        random_sample=args.random_sample)
-
 """
 dataloader = DataLoader(dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4) """
@@ -92,16 +93,30 @@ dataset_test = SynthDataset(geometric_model=args.geometric_model,
                             training_image_path=args.training_image_path,
                             transform=NormalizeImageDict(['image']),
                             random_sample=args.random_sample)
-
 """
 dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size,
                              shuffle=True, num_workers=4) """
 
+
 pair_generation_tnf = SynthPairTnf(geometric_model=args.geometric_model)
 
+# Parameter
+EPOCHS = 100
+LEARNING_RATE = 0.01
+BATCH_SIZE = 1
+
+source_train = tf.placeholder(tf.float32, [None, 480, 640, 3])
+target_train = tf.placeholder(tf.float32, [None, 480, 640, 3])
+input_pair_train = {'source_image':source_train, 'target_image':target_train}
+
+y_train = tf.placeholder(tf.float32, [None, 2, 3])
+
+# Model operation
+y_hat = model(input_pair_train)
+
 # Optimizer
-cost = loss()
-optimizer = tf.train.AdamOptimizer(learning_rate=args.lr).minimize(loss)#(model.FeatureRegression.parameters(), lr=args.lr)
+cost = loss(theta=y_hat, theta_GT=y_train)
+optimizer = tf.train.AdamOptimizer(learning_rate=args.lr).minimize(cost)
 
 # Train
 if args.use_mse_loss:
@@ -113,12 +128,26 @@ else:
 
 best_test_loss = float("inf")
 
-print('Starting training...')
+# Make session
+sess = tf.Session()
+init = sess.run(tf.global_variables_initializer())
 
 # Iteration section
+print('Learning Started!')
 for epoch in range(1, args.num_epochs + 1):
-    train_loss = train(epoch, model, loss, optimizer, dataloader, pair_generation_tnf, log_interval=100)
-    test_loss = test(model, loss, dataloader_test, pair_generation_tnf)
+    #train_loss = train(epoch, model, loss, optimizer, dataloader, pair_generation_tnf, log_interval=100)
+    #test_loss = test(model, loss, dataloader_test, pair_generation_tnf)
+
+    avg_cost_train = 0
+    total_batch = int(len(dataset) / BATCH_SIZE)
+
+    for i in range(total_batch):
+        rnd_choice = pair_generation_tnf(choice(dataset))
+        batch_xs_source, batch_xs_target, batch_ys = rnd_choice['source_image'], rnd_choice['target_image'], rnd_choice['theta_GT']
+        feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, y_train: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost_train += c / total_batch
+    print('Epoch: ', '%04d' % (epoch + 1), 'cost= ', '{:.9f}'.format(avg_cost_train))
 
     # remember best loss
     is_best = test_loss < best_test_loss
@@ -131,4 +160,4 @@ for epoch in range(1, args.num_epochs + 1):
         'optimizer': optimizer.state_dict(),
     }, is_best, checkpoint_name)
 
-print('Done!')
+print('Learning Finished!')

@@ -5,7 +5,7 @@ from os.path import exists, join, basename
 from skimage import io
 import pandas as pd
 import numpy as np
-from geotnf.transformation import GeometricTnf
+from geotnf.transformation_complete import GeometricTnf
 
 class SynthDataset():
     """
@@ -33,7 +33,7 @@ class SynthDataset():
         # read csv file
         self.train_data = pd.read_csv(csv_file)
         self.img_names = self.train_data.iloc[:,0]
-        self.theta_array = self.train_data.iloc[:, 1:].as_matrix().astype('float')
+        self.theta_array = self.train_data.iloc[:, 1:].values.astype('float')
         # copy arguments
         self.training_image_path = training_image_path
         self.transform = transform
@@ -47,7 +47,6 @@ class SynthDataset():
         # read image
         img_name = os.path.join(self.training_image_path, self.img_names[idx])
         image = io.imread(img_name)
-        
         # read theta
         if self.random_sample==False:
             theta = self.theta_array[idx, :]
@@ -70,13 +69,13 @@ class SynthDataset():
         # make arrays float tensor for subsequent processing
         image = tf.Variable(image, dtype=tf.float32)
         theta = tf.Variable(theta, dtype=tf.float32)
-        
+
         # permute order of image to CHW
-        image = tf.transpose(image,[2,0,1])
-                
+        #image = tf.transpose(image,[2,0,1])
+
         # Resize image using bilinear sampling with identity affine tnf
-        if image.size()[0]!=self.out_h or image.size()[1]!=self.out_w:
-            image = self.affineTnf(tf.Variable(tf.expand_dims(image, dim=0), trainable=False))
+        if image.get_shape()[0]!=self.out_h or image.get_shape()[1]!=self.out_w:
+            image = self.affineTnf(tf.Variable(tf.expand_dims(image, axis=0), trainable=False))
             image = tf.squeeze(image, 0)
         sample = {'image': image, 'theta': theta}
         

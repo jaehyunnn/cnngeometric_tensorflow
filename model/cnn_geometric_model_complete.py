@@ -6,7 +6,7 @@ import tensorflow.contrib.slim as slim
 from model.resnet_modified import resnet_v2_101_modified as resnet_modified
 
 class FeatureExtraction:
-    def __init__(self, trainable=False, feature_extraction_cnn='vgg'):
+    def __init__(self, trainable=False, feature_extraction_cnn='resnet_v2'):
         if feature_extraction_cnn == 'vgg':
             self.model = vgg
 
@@ -45,17 +45,17 @@ class FeatureCorrelation:
         """
         #feature_A = tf.reshape(feature_A, [-1,2,2,512])
         #feature_B = tf.reshape(feature_B, [-1,2,2,512])
-        b,h,w,c = feature_A.get_shape()
+        b,h,w,c = feature_A.get_shape().as_list()
 
 
         feature_A = tf.transpose(feature_A, [0,2,1,3])
-        feature_A = tf.reshape(feature_A, [b,h*w,c])
+        feature_A = tf.reshape(feature_A, [-1,h*w,c])
 
-        feature_B = tf.reshape(feature_B, [b,h*w,c])
+        feature_B = tf.reshape(feature_B, [-1,h*w,c])
         feature_B = tf.transpose(feature_B, [0,2,1])
 
         feature_mul = tf.matmul(feature_A, feature_B)
-        correlation_tensor = tf.reshape(feature_mul, [b,h,w,h*w])
+        correlation_tensor = tf.reshape(feature_mul, [-1,h,w,h*w])
 
         return correlation_tensor
 
@@ -85,7 +85,7 @@ class FeatureRegression:
 
 class CNNGeometric:
     def __init__(self, output_dim=6,
-                 feature_extraction_cnn='vgg',
+                 feature_extraction_cnn='resnet_v2',
                  return_correlation=False,
                  fr_feature_size=15,
                  fr_kernel_sizes=[7,5],

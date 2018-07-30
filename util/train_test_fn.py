@@ -4,7 +4,7 @@ def train(epoch,model,loss_fn,optimizer,dataloader,pair_generation_tnf,use_cuda=
     model.train()
     train_loss = 0
     for batch_idx, batch in enumerate(dataloader):
-        #optimizer.zero_grad()
+        optimizer.minimize(loss)
         tnf_batch = pair_generation_tnf(batch)
         theta = model(tnf_batch)
         loss = loss_fn(theta,tnf_batch['theta_GT'])

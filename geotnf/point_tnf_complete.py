@@ -6,10 +6,16 @@ class PointTnf(object):
         self.x='hello'
 
     def affPointTnf(self,theta,points):
-        theta_mat = theta.reshape(-1,2,3)
+        theta_mat = tf.reshape(theta, [-1,2,3])
+
         warped_points = tf.matmul(theta_mat[:,:,:2], points)
-        warped_points += tf.tile(tf.expand_dims(theta_mat[:,:,2],dim=2)
-                                 ,tf.shape(warped_points)) #translation section in Affine transformation
+        tile_arg_1 = np.divide(np.array(warped_points.get_shape().as_list())[1],
+                             np.array(tf.expand_dims(theta_mat[:, :, 2], axis=2).get_shape().as_list())[1]).astype('int32')
+        tile_arg_2 = np.divide(np.array(warped_points.get_shape().as_list())[2],
+                               np.array(tf.expand_dims(theta_mat[:, :, 2], axis=2).get_shape().as_list())[2]).astype('int32')
+
+        warped_points += tf.tile(tf.expand_dims(theta_mat[:,:,2], axis=2)
+                                 ,[-1, tile_arg_1, tile_arg_2])  #translation section in Affine transformation
         return warped_points
 
 def PointsToUnitCoords(P, im_size):
@@ -17,9 +23,9 @@ def PointsToUnitCoords(P, im_size):
     NormAxis = lambda x, L: (x - 1 - (L - 1) / 2) * 2 / (L - 1)
     P_norm = tf.identity(P)
     # normalize Y
-    P_norm[:, 0, :] = NormAxis(P[:, 0, :], tf.tile(tf.expand_dims(w, dim=1), tf.shape(P[:, 0, :])))
+    P_norm[:, 0, :] = NormAxis(P[:, 0, :], tf.tile(tf.expand_dims(w, axis=1), tf.shape(P[:, 0, :])))
     # normalize X
-    P_norm[:, 1, :] = NormAxis(P[:, 1, :], tf.tile(tf.expand_dims(h, dim=1), tf.shape(P[:, 1, :])))
+    P_norm[:, 1, :] = NormAxis(P[:, 1, :], tf.tile(tf.expand_dims(h, axis=1), tf.shape(P[:, 1, :])))
     return P_norm
 
 def PointsToPixelCoords(P, im_size):
@@ -27,10 +33,12 @@ def PointsToPixelCoords(P, im_size):
     NormAxis = lambda x, L: x*(L-1)/2+1+(L-1)/2
     P_norm = tf.identity(P)
     # normalize Y
-    P_norm[:, 0, :] = NormAxis(P[:, 0, :], tf.tile(tf.expand_dims(w, dim=1), tf.shape(P[:, 0, :])))
+    P_norm[:, 0, :] = NormAxis(P[:, 0, :], tf.tile(tf.expand_dims(w, axis=1), tf.shape(P[:, 0, :])))
     # normalize X
-    P_norm[:, 1, :] = NormAxis(P[:, 1, :], tf.tile(tf.expand_dims(h, dim=1), tf.shape(P[:, 1, :])))
+    P_norm[:, 1, :] = NormAxis(P[:, 1, :], tf.tile(tf.expand_dims(h, axis=1), tf.shape(P[:, 1, :])))
     return P_norm
 
-
+"""
+TODO: tf.tile --> tile_arg 바꾸기
+"""
 
