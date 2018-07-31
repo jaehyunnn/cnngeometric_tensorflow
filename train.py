@@ -98,15 +98,15 @@ dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size,
                              shuffle=True, num_workers=4) """
 
 
-pair_generation_tnf = SynthPairTnf(geometric_model=args.geometric_model)
+pair_generation_tnf = SynthPairTnf(geometric_model=args.geometric_model, output_size=(240, 240))
 
 # Parameter
 EPOCHS = 100
 LEARNING_RATE = 0.01
 BATCH_SIZE = 1
 
-source_train = tf.placeholder(tf.float32, [None, 480, 640, 3])
-target_train = tf.placeholder(tf.float32, [None, 480, 640, 3])
+source_train = tf.placeholder(tf.float32, [None, 240, 240, 3])
+target_train = tf.placeholder(tf.float32, [None, 240, 240, 3])
 input_pair_train = {'source_image':source_train, 'target_image':target_train}
 
 y_train = tf.placeholder(tf.float32, [None, 2, 3])
@@ -147,8 +147,11 @@ for epoch in range(1, args.num_epochs + 1):
         feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, y_train: batch_ys}
         c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
         avg_cost_train += c / total_batch
+        print('batch_num: ', '%04d' % (i + 1), 'cost= ', '{:.9f}'.format(c))
     print('Epoch: ', '%04d' % (epoch + 1), 'cost= ', '{:.9f}'.format(avg_cost_train))
 
+"""
+TODO : checkpoint 저장 모듈 구현
     # remember best loss
     is_best = test_loss < best_test_loss
     best_test_loss = min(test_loss, best_test_loss)
@@ -159,5 +162,5 @@ for epoch in range(1, args.num_epochs + 1):
         'best_test_loss': best_test_loss,
         'optimizer': optimizer.state_dict(),
     }, is_best, checkpoint_name)
-
+"""
 print('Learning Finished!')

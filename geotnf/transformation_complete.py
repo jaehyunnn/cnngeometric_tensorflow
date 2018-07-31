@@ -34,7 +34,6 @@ class GeometricTnf:
         """
         # sample transformed image
         warped_image_batch = self.bilinear_sampler(image_batch, x_s, y_s)
-
         return warped_image_batch
 
     def get_pixel_value(self, img, x, y):
@@ -50,7 +49,6 @@ class GeometricTnf:
 
     def bilinear_sampler(self, img, x, y):
         B, H, W, C = img.get_shape().as_list()
-
         max_y = tf.cast(H - 1, 'int32')
         max_x = tf.cast(W - 1, 'int32')
         zero = tf.zeros([], dtype='int32')
@@ -118,7 +116,8 @@ class SynthPairTnf:
         try:
             B, H, W, C = image_batch.get_shape().as_list()
         except:
-            B, H, W, C = tf.expand_dims(image_batch, 0).get_shape().as_list()
+            image_batch = tf.expand_dims(image_batch, 0)
+            B, H, W, C = image_batch.get_shape().as_list()
 
         # generate symmetrically padded image for bigger sampling region
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
@@ -140,17 +139,54 @@ class SynthPairTnf:
         try:
             B, H, W, C = image_batch.get_shape().as_list()
         except:
-            B, H, W, C = tf.expand_dims(image_batch,0).get_shape().as_list()
+            image_batch = tf.expand_dims(image_batch, 0)
+            B, H, W, C = image_batch.get_shape().as_list()
         pad_h, pad_w = int(H * padding_factor), int(W * padding_factor)
-        idx_pad_left = tf.range(pad_w-1, -1, -1, dtype=tf.int64, name='idx_pad_left')
-        idx_pad_right = tf.range(W-1, W-pad_w-1, -1, dtype=tf.int64, name='idx_pad_right')
-        idx_pad_top = tf.range(pad_h-1, -1, -1, dtype=tf.int64, name='idx_pad_top')
-        idx_pad_bottom = tf.range(H-1, H-pad_h-1, -1, dtype=tf.int64, name='idx_pad_bottom')
+        #idx_pad_left = tf.range(pad_w-1, -1, -1, dtype=tf.int64, name='idx_pad_left')
+        idx_pad_left = range(pad_w - 1, -1, -1)
+        indice_left = []
+        for i in range(B):
+            for j in range(H):
+                for k in range(W):
+                    for l in idx_pad_left:
+                        indice_left.append([i, j, k, l])
+        #idx_pad_right = tf.range(W-1, W-pad_w-1, -1, dtype=tf.int64, name='idx_pad_right')
+        idx_pad_right = range(W - 1, W - pad_w - 1, -1)
+        indice_right = []
+        for i in range(B):
+            for j in range(H):
+                for k in range(W):
+                    for l in idx_pad_right:
+                        indice_right.append([i, j, k, l])
+        #idx_pad_top = tf.range(pad_h-1, -1, -1, dtype=tf.int64, name='idx_pad_top')
+        idx_pad_top = range(pad_h - 1, -1, -1)
+        indice_top = []
+        for i in range(B):
+            for j in range(H):
+                for k in range(C):
+                    for l in idx_pad_top:
+                        indice_top.append([i, j, l, k])
+        #idx_pad_bottom = tf.range(H-1, H-pad_h-1, -1, dtype=tf.int64, name='idx_pad_bottom')
+        idx_pad_bottom = range(H - 1, H - pad_h - 1, -1)
+        indice_bottom = []
+        for i in range(B):
+            for j in range(H):
+                for k in range(C):
+                    for l in idx_pad_bottom:
+                        indice_bottom.append([i, j, l, k])
+        
 
+        image_batch = tf.concat((tf.gather_nd(image_batch, indice_left), image_batch,
+                                 tf.gather_nd(image_batch, indice_right)), axis=3)
+        image_batch = tf.concat((tf.gather_nd(image_batch, indice_top), image_batch,
+                                 tf.gather_nd(image_batch, indice_bottom)), axis=2)
+
+        """
         image_batch = tf.concat((image_batch.index_select(3, idx_pad_left), image_batch,
                                  image_batch.index_select(3, idx_pad_right)), axis=3)
         image_batch = tf.concat((image_batch.index_select(2, idx_pad_top), image_batch,
                                  image_batch.index_select(2, idx_pad_bottom)), axis=2)
+        """
 
         return image_batch
 
@@ -161,7 +197,11 @@ class AffineGridGen:
         self.out_ch = out_ch
 
     def __call__(self, theta):
-        batch_size = theta.get_shape().as_list()[0]
+        try:
+            batch_size, row_1, row_2 = theta.get_shape().as_list()
+        except:
+            theta = tf.expand_dims(theta, 0)
+            batch_size, row_1, row_2 = theta.get_shape().as_list()
         out_size = [batch_size, self.out_h, self.out_w, self.out_ch]
 
         # create normalized 2D grid
@@ -176,7 +216,6 @@ class AffineGridGen:
         # reshape to homogeneous form [x_t, y_t, 1]
         ones = tf.ones_like(x_t_flat)
         sampling_grid = tf.stack([x_t_flat, y_t_flat, ones])
-
         # repeat grid batch_size times
         sampling_grid = tf.expand_dims(sampling_grid, axis=0)
         sampling_grid = tf.tile(sampling_grid, [batch_size, 1, 1])
@@ -190,7 +229,7 @@ class AffineGridGen:
         # batch grid has shape (batch_size, 2, H*W)
 
         # reshape to (batch_size, H, W, 2)
-        batch_grids = tf.reshape(batch_grids, [batch_size, 2, self.out_h, self.out_w])
+        batch_grids = tf.reshape(batch_grids, [batch_size, 2, out_size[1], out_size[2]])
         return batch_grids
 
 

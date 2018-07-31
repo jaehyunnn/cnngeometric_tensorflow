@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from geotnf.transformation_complete import GeometricTnf
 
-class SynthDataset():
+class SynthDataset:
     """
     
     Synthetically transformed pairs dataset for training with strong supervision
@@ -22,7 +22,7 @@ class SynthDataset():
             
     """
 
-    def __init__(self, csv_file, training_image_path, output_size=(480,640), geometric_model='affine', transform=None,
+    def __init__(self, csv_file, training_image_path, output_size=(480, 640), geometric_model='affine', transform=None,
                  random_sample=False, random_t=0.5, random_s=0.5, random_alpha=1/6, random_t_tps=0.4):
         self.random_sample = random_sample
         self.random_t = random_t
