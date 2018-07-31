@@ -130,7 +130,7 @@ best_test_loss = float("inf")
 
 # Make session
 sess = tf.Session()
-init = sess.run(tf.global_variables_initializer())
+sess.run(tf.global_variables_initializer())
 
 # Iteration section
 print('Learning Started!')
@@ -143,7 +143,8 @@ for epoch in range(1, args.num_epochs + 1):
 
     for i in range(total_batch):
         rnd_choice = pair_generation_tnf(choice(dataset))
-        batch_xs_source, batch_xs_target, batch_ys = rnd_choice['source_image'], rnd_choice['target_image'], rnd_choice['theta_GT']
+        batch_xs_source, batch_xs_target, batch_ys = sess.run(rnd_choice['source_image'], rnd_choice['target_image'], rnd_choice['theta_GT'])
+        
         feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, y_train: batch_ys}
         c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
         avg_cost_train += c / total_batch
@@ -151,7 +152,7 @@ for epoch in range(1, args.num_epochs + 1):
     print('Epoch: ', '%04d' % (epoch + 1), 'cost= ', '{:.9f}'.format(avg_cost_train))
 
 """
-TODO : checkpoint 저장 모듈 구현
+TODO : checkpoint 저장 모듈 구현 
     # remember best loss
     is_best = test_loss < best_test_loss
     best_test_loss = min(test_loss, best_test_loss)

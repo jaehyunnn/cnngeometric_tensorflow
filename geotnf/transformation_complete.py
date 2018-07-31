@@ -118,6 +118,7 @@ class SynthPairTnf:
         except:
             image_batch = tf.expand_dims(image_batch, 0)
             B, H, W, C = image_batch.get_shape().as_list()
+            theta_batch = tf.expand_dims(theta_batch, 0)
 
         # generate symmetrically padded image for bigger sampling region
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
@@ -128,7 +129,6 @@ class SynthPairTnf:
 
         # get cropped image
         cropped_image_batch = self.rescalingTnf(image_batch, None, self.padding_factor, self.crop_factor)
-
         # get transformed image
         warped_image_batch = self.geometricTnf(image_batch, theta_batch,
                                                self.padding_factor, self.crop_factor)
@@ -141,53 +141,80 @@ class SynthPairTnf:
         except:
             image_batch = tf.expand_dims(image_batch, 0)
             B, H, W, C = image_batch.get_shape().as_list()
+
         pad_h, pad_w = int(H * padding_factor), int(W * padding_factor)
-        #idx_pad_left = tf.range(pad_w-1, -1, -1, dtype=tf.int64, name='idx_pad_left')
+        idx_pad_left = np.arange(pad_w , -1, -1)[0]
+        idx_pad_right = np.arange(W , W - pad_w - 1, -1)[0]
+        idx_pad_top = np.arange(pad_h , -1, -1)[0]
+        idx_pad_bottom = np.arange(H , H - pad_h - 1, -1)[0]
+
+        pad_arg = np.array([[idx_pad_top,idx_pad_bottom],[idx_pad_left,idx_pad_right]])
+        #pad_arg = tf.expand_dims(pad_arg, axis=0)
+        #pad_arg = tf.expand_dims(pad_arg, axis=3)
+
+        temp_c1 = tf.expand_dims(tf.expand_dims(tf.pad(image_batch[0,:,:,0], pad_arg, "SYMMETRIC"),axis=0),axis=3)
+        temp_c2 = tf.expand_dims(tf.expand_dims(tf.pad(image_batch[0, :, :, 1], pad_arg, "SYMMETRIC"),axis=0),axis=3)
+        temp_c3 = tf.expand_dims(tf.expand_dims(tf.pad(image_batch[0, :, :, 2], pad_arg, "SYMMETRIC"),axis=0),axis=3)
+        temp_c_concat = tf.concat((temp_c1,temp_c2,temp_c3),axis=3)
+        temp_b = temp_c_concat
+
+        for i in range(1,B):
+            temp_c1 = tf.expand_dims(tf.expand_dims(tf.pad(image_batch[B, :, :, 0], pad_arg, "SYMMETRIC"), axis=0), axis=3)
+            temp_c2 = tf.expand_dims(tf.expand_dims(tf.pad(image_batch[B, :, :, 1], pad_arg, "SYMMETRIC"), axis=0), axis=3)
+            temp_c3 = tf.expand_dims(tf.expand_dims(tf.pad(image_batch[B, :, :, 2], pad_arg, "SYMMETRIC"), axis=0), axis=3)
+            temp_c_concat = tf.concat((temp_c1, temp_c2, temp_c3), axis=3)
+            temp_b = tf.concat((temp_b,temp_c_concat),axis=0)
+        image_batch = temp_b
+
+        """
         idx_pad_left = range(pad_w - 1, -1, -1)
         indice_left = []
         for i in range(B):
             for j in range(H):
-                for k in range(W):
+                for k in range(C):
                     for l in idx_pad_left:
-                        indice_left.append([i, j, k, l])
-        #idx_pad_right = tf.range(W-1, W-pad_w-1, -1, dtype=tf.int64, name='idx_pad_right')
+                        indice_left.append([i, j, l, k])
+        indice_left = tf.reshape(tf.Variable(indice_left),[B,H,-1,C])
+
         idx_pad_right = range(W - 1, W - pad_w - 1, -1)
         indice_right = []
         for i in range(B):
             for j in range(H):
-                for k in range(W):
+                for k in range(C):
                     for l in idx_pad_right:
-                        indice_right.append([i, j, k, l])
-        #idx_pad_top = tf.range(pad_h-1, -1, -1, dtype=tf.int64, name='idx_pad_top')
+                        indice_right.append([i, j, l, k])
+        indice_right = tf.reshape(tf.Variable(indice_right), [B, H, -1, C])
+
         idx_pad_top = range(pad_h - 1, -1, -1)
         indice_top = []
         for i in range(B):
-            for j in range(H):
+            for j in range(W):
                 for k in range(C):
                     for l in idx_pad_top:
-                        indice_top.append([i, j, l, k])
-        #idx_pad_bottom = tf.range(H-1, H-pad_h-1, -1, dtype=tf.int64, name='idx_pad_bottom')
+                        indice_top.append([i, l, j, k])
+        indice_top = tf.reshape(tf.Variable(indice_top), [B, -1, W, C])
+
         idx_pad_bottom = range(H - 1, H - pad_h - 1, -1)
         indice_bottom = []
         for i in range(B):
-            for j in range(H):
+            for j in range(W):
                 for k in range(C):
                     for l in idx_pad_bottom:
-                        indice_bottom.append([i, j, l, k])
-        
+                        indice_bottom.append([i, l, j, k])
+        indice_bottom = tf.reshape(tf.Variable(indice_bottom), [B, -1, W, C])
 
+        # concatenating with padding
         image_batch = tf.concat((tf.gather_nd(image_batch, indice_left), image_batch,
-                                 tf.gather_nd(image_batch, indice_right)), axis=3)
+                                 tf.gather_nd(image_batch, indice_right)), axis=2)
         image_batch = tf.concat((tf.gather_nd(image_batch, indice_top), image_batch,
-                                 tf.gather_nd(image_batch, indice_bottom)), axis=2)
+                                 tf.gather_nd(image_batch, indice_bottom)), axis=1)
 
-        """
+        
         image_batch = tf.concat((image_batch.index_select(3, idx_pad_left), image_batch,
                                  image_batch.index_select(3, idx_pad_right)), axis=3)
         image_batch = tf.concat((image_batch.index_select(2, idx_pad_top), image_batch,
                                  image_batch.index_select(2, idx_pad_bottom)), axis=2)
         """
-
         return image_batch
 
 class AffineGridGen:
