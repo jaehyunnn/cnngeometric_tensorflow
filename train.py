@@ -77,7 +77,6 @@ else:
     loss = TransformedGridLoss(geometric_model=args.geometric_model)
 
 # Dataset and dataloader
-print('\nMaking dataset...')
 
 dataset = SynthDataset(geometric_model=args.geometric_model,
                        csv_file=os.path.join(args.training_tnf_csv, 'train.csv'),
@@ -143,8 +142,11 @@ for epoch in range(1, args.num_epochs + 1):
 
     for i in range(total_batch):
         rnd_choice = pair_generation_tnf(choice(dataset))
-        batch_xs_source, batch_xs_target, batch_ys = sess.run(rnd_choice['source_image'], rnd_choice['target_image'], rnd_choice['theta_GT'])
-        
+        batch_xs_source, batch_xs_target, batch_ys = rnd_choice['source_image'], rnd_choice['target_image'], rnd_choice['theta_GT']
+        batch_xs_source = batch_xs_source.eval(session=sess)
+        batch_xs_target = batch_xs_target.eval(session=sess)
+        batch_ys = batch_ys.eval(session=sess)
+
         feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, y_train: batch_ys}
         c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
         avg_cost_train += c / total_batch

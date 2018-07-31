@@ -20,7 +20,6 @@ class GeometricTnf:
         if theta_batch is None:
             theta_batch = self.theta_identity
             theta_batch = tf.tile(theta_batch, [B,1,1])
-            theta_batch = tf.Variable(theta_batch, trainable=False)
 
         sampling_grid = self.gridGen(theta_batch)
 
@@ -45,7 +44,7 @@ class GeometricTnf:
         indices = tf.stack([b, y, x], 3)
         pixel_value = tf.gather_nd(img, indices)
 
-        return pixel_value
+        return tf.cast(pixel_value,'float32')
 
     def bilinear_sampler(self, img, x, y):
         B, H, W, C = img.get_shape().as_list()
@@ -78,6 +77,7 @@ class GeometricTnf:
         Ib = self.get_pixel_value(img, x0, y1)
         Ic = self.get_pixel_value(img, x1, y0)
         Id = self.get_pixel_value(img, x1, y1)
+
         # recast as float for delta calculation
         x0 = tf.cast(x0, 'float32')
         x1 = tf.cast(x1, 'float32')
@@ -124,8 +124,8 @@ class SynthPairTnf:
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
 
         # convert to variables
-        image_batch = tf.Variable(image_batch, trainable=False)
-        theta_batch = tf.Variable(theta_batch, trainable=False)
+        #image_batch = tf.Variable(image_batch, trainable=False)
+        #theta_batch = tf.Variable(theta_batch, trainable=False)
 
         # get cropped image
         cropped_image_batch = self.rescalingTnf(image_batch, None, self.padding_factor, self.crop_factor)

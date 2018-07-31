@@ -11,12 +11,12 @@ class TransformedGridLoss():
         X = np.reshape(X, [1,1,self.N])
         Y = np.reshape(Y, [1,1,self.N])
         P = np.concatenate((X,Y),1)
-        self.P = tf.Variable(initial_value=P, trainable=False, dtype=tf.float32)
+        self.P = P
         self.pointTnf = PointTnf()
 
     def __call__(self, theta, theta_GT):
         batch_size = theta.shape[0]
-        P = tf.tile(self.P, [-1,1,1])
+        P = tf.cast(tf.tile(self.P, [-1,1,1]),'float32')
 
         if self.geometric_model == "affine":
             P_prime = self.pointTnf.affPointTnf(theta, P)
