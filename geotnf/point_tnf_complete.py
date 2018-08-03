@@ -1,12 +1,13 @@
 import tensorflow as tf
 import numpy as np
 
-class PointTnf(object):
+class PointTnf:
     def __init__(self):
-        self.x='hello'
+        pass
 
     def affPointTnf(self,theta,points):
         theta_mat = tf.reshape(theta, [-1,2,3])
+        batch_size = theta_mat.get_shape().as_list()[0]
 
         warped_points = tf.matmul(theta_mat[:,:,:2], points)
         tile_arg_1 = np.divide(np.array(warped_points.get_shape().as_list())[1],
@@ -15,7 +16,7 @@ class PointTnf(object):
                                np.array(tf.expand_dims(theta_mat[:, :, 2], axis=2).get_shape().as_list())[2]).astype('int32')
 
         warped_points += tf.tile(tf.expand_dims(theta_mat[:,:,2], axis=2)
-                                 ,[-1, tile_arg_1, tile_arg_2])  #translation section in Affine transformation
+                                 ,[1, tile_arg_1, tile_arg_2])  #[batch_size, tile_1, tile_2]로 바꿔주기
         return warped_points
 
 def PointsToUnitCoords(P, im_size):
@@ -37,8 +38,3 @@ def PointsToPixelCoords(P, im_size):
     # normalize X
     P_norm[:, 1, :] = NormAxis(P[:, 1, :], tf.tile(tf.expand_dims(h, axis=1), tf.shape(P[:, 1, :])))
     return P_norm
-
-"""
-TODO: tf.tile --> tile_arg 바꾸기
-"""
-

@@ -102,7 +102,7 @@ pair_generation_tnf = SynthPairTnf(geometric_model=args.geometric_model, output_
 # Parameter
 EPOCHS = 100
 LEARNING_RATE = 0.01
-BATCH_SIZE = 1
+BATCH_SIZE = 24
 
 source_train = tf.placeholder(tf.float32, [None, 240, 240, 3])
 target_train = tf.placeholder(tf.float32, [None, 240, 240, 3])
@@ -114,7 +114,7 @@ y_train = tf.placeholder(tf.float32, [None, 2, 3])
 y_hat = model(input_pair_train)
 
 # Optimizer
-cost = loss(theta=y_hat, theta_GT=y_train)
+cost = loss(theta=y_hat, theta_GT=y_train, batch_size=BATCH_SIZE)
 optimizer = tf.train.AdamOptimizer(learning_rate=args.lr).minimize(cost)
 
 # Train
@@ -141,8 +141,21 @@ for epoch in range(1, args.num_epochs + 1):
     total_batch = int(len(dataset) / BATCH_SIZE)
 
     for i in range(total_batch):
-        rnd_choice = pair_generation_tnf(choice(dataset))
-        batch_xs_source, batch_xs_target, batch_ys = rnd_choice['source_image'], rnd_choice['target_image'], rnd_choice['theta_GT']
+        source_batch = pair_generation_tnf(choice(dataset))['source_image']
+        target_batch = pair_generation_tnf(choice(dataset))['target_image']
+        theta_batch = pair_generation_tnf(choice(dataset))['theta_GT']
+        for j in range(BATCH_SIZE-1):
+            rnd_source = pair_generation_tnf(choice(dataset))['source_image']
+            source_batch = tf.concat((source_batch, rnd_source), 0)
+            rnd_target = pair_generation_tnf(choice(dataset))['target_image']
+            target_batch = tf.concat((target_batch, rnd_target), 0)
+            rnd_theta = pair_generation_tnf(choice(dataset))['theta_GT']
+            theta_batch = tf.concat((theta_batch, rnd_theta), 0)
+
+        print(source_batch)
+        print(target_batch)
+        print(theta_batch)
+        batch_xs_source, batch_xs_target, batch_ys = source_batch, target_batch, theta_batch
         batch_xs_source = batch_xs_source.eval(session=sess)
         batch_xs_target = batch_xs_target.eval(session=sess)
         batch_ys = batch_ys.eval(session=sess)
