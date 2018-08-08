@@ -3,7 +3,7 @@ from tensorflow.contrib.slim.python.slim.nets import resnet_v2
 from tensorflow.python.util.all_util import make_all
 
 model = resnet_v2
-def resnet_v2_101_modified(inputs,
+def resnet_v2_101(inputs,
                   num_classes=None,
                   is_training=True,
                   global_pool=False,

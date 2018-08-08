@@ -26,24 +26,24 @@ def normalize_image(image, forward=True, mean=[0.485, 0.456, 0.406],std=[0.229, 
         std = tf.Variable(std, trainable=False)
     if forward:
         if len(im_size) == 3:
-            tile_arg = np.divide(np.array(im_size.as_list()), np.array(mean.get_shape().as_list())).astype('int32')
+            tile_arg = np.divide(np.array(im_size), np.array(mean.get_shape())).astype('int32')
             result = tf.divide(tf.subtract(image, tf.tile(mean, tile_arg)),
                                tf.tile(std, tile_arg))
         elif len(im_size) == 4:
             mean = tf.expand_dims(mean,0)
             std = tf.expand_dims(std,0)
-            tile_arg = np.divide(np.array(im_size.as_list()),np.array(mean.get_shape().as_list())).astype('int32')
+            tile_arg = np.divide(np.array(im_size),np.array(mean.get_shape().as_list())).astype('int32')
             result = tf.divide(tf.subtract(image,tf.tile(mean, tile_arg)),
                                tf.tile(std, tile_arg))
     else:
         if len(im_size) == 3:
-            tile_arg = np.divide(np.array(im_size.as_list()), np.array(mean.get_shape().as_list())).astype('int32')
+            tile_arg = np.divide(np.array(im_size), np.array(mean.get_shape().as_list)).astype('int32')
             result = tf.add(tf.multiply(image,tf.tile(mean, tile_arg)),
                             tf.tile(std, tile_arg))
         elif len(im_size) == 4:
             mean = tf.expand_dims(mean, 0)
             std = tf.expand_dims(std, 0)
-            tile_arg = np.divide(np.array(im_size.as_list()), np.array(mean.get_shape().as_list())).astype('int32')
+            tile_arg = np.divide(np.array(im_size), np.array(mean.get_shape().as_list())).astype('int32')
             result = tf.add(tf.multiply(image,tf.tile(mean, tile_arg)),
                             tf.tile(std, tile_arg))
 

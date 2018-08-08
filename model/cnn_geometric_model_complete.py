@@ -3,7 +3,7 @@ from tensorflow.contrib.slim.python.slim.nets import resnet_v2 as resnet
 from tensorflow.contrib.slim.python.slim.nets import vgg
 from tensorflow.python.util.all_util import make_all
 import tensorflow.contrib.slim as slim
-from model.resnet_modified import resnet_v2_101_modified as resnet_modified
+from model.resnet_modified import resnet_v2_101 as resnet_modified
 
 class FeatureExtraction:
     def __init__(self, trainable=False, feature_extraction_cnn='resnet_v2'):
