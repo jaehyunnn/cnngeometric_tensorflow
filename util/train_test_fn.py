@@ -31,3 +31,5 @@ def test(model,loss_fn,dataloader,pair_generation_tnf,use_cuda=True):
     test_loss /= len(dataloader)
     print('Test set: Average loss: {:.4f}'.format(test_loss))
     return test_loss
+
+# Not re-implemented

@@ -5,7 +5,7 @@ from os.path import exists, join, basename
 from skimage import io
 import pandas as pd
 import numpy as np
-from geotnf.transformation_complete import GeometricTnf
+from geotnf.transformation import GeometricTnf
 
 class SynthDataset:
     """

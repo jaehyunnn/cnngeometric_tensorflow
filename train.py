@@ -4,14 +4,14 @@ import os
 from os.path import exists, join, basename
 import tensorflow as tf
 #from torch.utils.data import Dataset, DataLoader
-from model.cnn_geometric_model_complete import CNNGeometric
-from model.loss_complete import TransformedGridLoss
-from data.synth_dataset_complete import SynthDataset
-from data.download_datasets_complete import download_pascal
-from geotnf.transformation_complete import SynthPairTnf
-from image.normalization_complete import NormalizeImageDict
+from model.cnn_geometric_model import CNNGeometric
+from model.loss import TransformedGridLoss
+from data.synth_dataset import SynthDataset
+from data.download_datasets import download_pascal
+from geotnf.transformation import SynthPairTnf
+from image.normalization import NormalizeImageDict
 from util.train_test_fn import train, test
-from util.tf_util_complete import save_checkpoint, str_to_bool
+from util.tf_util import save_checkpoint, str_to_bool
 from random import choice
 import numpy as np
 
@@ -172,8 +172,10 @@ with tf.Session() as sess:
 
         epoch_end = timeit.default_timer()
         t = epoch_end-epoch_start
-        print('Epoch: %04d' % (epoch + 1), 'cost= {:.9f}'.format(avg_cost_train),'Time per epoch: %dm %ds'%((t/60),(t%60)))
-
-# TODO: implement validation code
+        print('Epoch: %03d' % (epoch), '\t Average cost= {:.9f}'.format(avg_cost_train),'\tTime per epoch: %dm %ds'%((t/60),(t%60)))
 
 print('Learning Finished!')
+
+# TODO:
+#  - Implement validation code
+#  - Implement tps train code
