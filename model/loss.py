@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from geotnf.point_tnf_complete import PointTnf
+from geotnf.point_tnf import PointTnf
 
 class TransformedGridLoss():
     def __init__(self, geometric_model='affine', grid_size=20):

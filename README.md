@@ -1,11 +1,16 @@
-<div align="center">
+
+
+
+# CNNGeometric Re-implementation using TensorFlow
+
+<div style="text-align:center;">
   <img src="https://blogs.rstudio.com/tensorflow/posts/2017-08-17-tensorflow-v13-released/tensorflow-logo.png"><br><br>
 </div>
 
 -----------------
-# CNNGeometric Re-implementation using TensorFlow
-
-![](http://www.di.ens.fr/willow/research/cnngeometric/images/teaser.png)
+<div style="text-align:center;">
+  <img src="http://www.di.ens.fr/willow/research/cnngeometric/images/teaser.png"><br><br>
+</div>
 
 This is the re-implementation of the paper: 
 
