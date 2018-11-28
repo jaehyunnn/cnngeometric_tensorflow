@@ -3,7 +3,7 @@
 
 # CNNGeometric Re-implementation using TensorFlow
 <p align="center">
-    <img width="60%" src="https://blogs.rstudio.com/tensorflow/posts/2017-08-17-tensorflow-v13-released/tensorflow-logo.png">
+    <img width="30%" src="https://blogs.rstudio.com/tensorflow/posts/2017-08-17-tensorflow-v13-released/tensorflow-logo.png">
 </p>
 
 
