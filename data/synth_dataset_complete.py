@@ -76,11 +76,9 @@ class SynthDataset:
         # Resize image using bilinear sampling with identity affine tnf
         if image.shape[0]!=self.out_h or image.shape[1]!=self.out_w:
             #image = self.affineTnf(tf.Variable(tf.expand_dims(image, axis=0), trainable=False))
-            image = self.affineTnf(tf.expand_dims(image, axis=0))
-            image = tf.squeeze(image, 0)
+            image = self.affineTnf(np.expand_dims(image, axis=0))
+            image = np.squeeze(image, 0)
         sample = {'image': image, 'theta': theta}
-        
         if self.transform:
             sample = self.transform(sample)
-
         return sample

@@ -13,6 +13,7 @@ from image.normalization_complete import NormalizeImageDict
 from util.train_test_fn import train, test
 from util.tf_util_complete import save_checkpoint, str_to_bool
 from random import choice
+import numpy as np
 
 """
 
@@ -41,10 +42,8 @@ parser.add_argument('--seed', type=int, default=1, help='Pseudo-RNG seed')
 # Model parameters
 parser.add_argument('--geometric-model', type=str, default='affine',
                     help='geometric model to be regressed at output: affine or tps')
-parser.add_argument('--use-mse-loss', type=str_to_bool, nargs='?', const=True, default=False,
-                    help='Use MSE loss on tnf. parameters')
-parser.add_argument('--feature-extraction-cnn', type=str, default='resnet_v2',
-                    help='Feature extraction architecture: vgg/resnet_v2')
+parser.add_argument('--use-mse-loss', type=str_to_bool, nargs='?', const=True, default=False, help='Use MSE loss on tnf. parameters')
+parser.add_argument('--feature-extraction-cnn', type=str, default='vgg', help='Feature extraction architecture: vgg/resnet101')
 # Synthetic dataset parameters
 parser.add_argument('--random-sample', type=str_to_bool, nargs='?', const=True, default=False,
                     help='sample random transformations')
@@ -77,104 +76,104 @@ else:
     loss = TransformedGridLoss(geometric_model=args.geometric_model)
 
 # Dataset and dataloader
-
 dataset = SynthDataset(geometric_model=args.geometric_model,
                        csv_file=os.path.join(args.training_tnf_csv, 'train.csv'),
                        training_image_path=args.training_image_path,
                        transform=NormalizeImageDict(['image']),
                        random_sample=args.random_sample)
-"""
-dataloader = DataLoader(dataset, batch_size=args.batch_size,
-                        shuffle=True, num_workers=4) """
 
 dataset_test = SynthDataset(geometric_model=args.geometric_model,
                             csv_file=os.path.join(args.training_tnf_csv, 'test.csv'),
                             training_image_path=args.training_image_path,
                             transform=NormalizeImageDict(['image']),
                             random_sample=args.random_sample)
-"""
-dataloader_test = DataLoader(dataset_test, batch_size=args.batch_size,
-                             shuffle=True, num_workers=4) """
-
 
 pair_generation_tnf = SynthPairTnf(geometric_model=args.geometric_model, output_size=(240, 240))
 
-# Parameter
-EPOCHS = 100
-LEARNING_RATE = 0.001
-BATCH_SIZE = 24
 
 source_train = tf.placeholder(tf.float32, [None, 240, 240, 3])
 target_train = tf.placeholder(tf.float32, [None, 240, 240, 3])
 input_pair_train = {'source_image':source_train, 'target_image':target_train}
 
-y_train = tf.placeholder(tf.float32, [None, 2, 3])
+theta_GT = tf.placeholder(tf.float32, [None, 2, 3])
 
 # Model operation
-y_hat = model(input_pair_train)
+theta = model(input_pair_train)
 
 # Optimizer
-cost = loss(theta=y_hat, theta_GT=y_train, batch_size=BATCH_SIZE)
+cost = loss(theta=theta, theta_GT=theta_GT, batch_size=args.batch_size)
 optimizer = tf.train.AdamOptimizer(learning_rate=args.lr).minimize(cost)
 
 # Train
-if args.use_mse_loss:
-    checkpoint_name = os.path.join(args.trained_models_dir,
-                                   args.trained_models_fn + '_' + args.geometric_model + '_mse_loss' + args.feature_extraction_cnn + '.pth.tar')
-else:
-    checkpoint_name = os.path.join(args.trained_models_dir,
-                                   args.trained_models_fn + '_' + args.geometric_model + '_grid_loss' + args.feature_extraction_cnn + '.pth.tar')
-
 best_test_loss = float("inf")
 
-# Make session
-sess = tf.Session()
-sess.run(tf.global_variables_initializer())
+# Create saver
+saver = tf.train.Saver()
 
-# Iteration section
-print('Learning Started!')
-for epoch in range(1, args.num_epochs + 1):
-    #train_loss = train(epoch, model, loss, optimizer, dataloader, pair_generation_tnf, log_interval=100)
-    #test_loss = test(model, loss, dataloader_test, pair_generation_tnf)
+# Make session for training
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
 
-    avg_cost_train = 0
-    total_batch = int(len(dataset) / BATCH_SIZE)
+    print('Starting training...\n')
+    print("# ===================================== #")
+    print("\t\t......Train config......")
+    print("\t\t CNN model: ", args.feature_extraction_cnn)
+    print("\t\t Geometric model: ", args.geometric_model)
+    print("\t\t Dataset: ", args.training_dataset)
+    print()
+    print("\t\t Learning rate: ", args.lr)
+    print("\t\t Batch size: ", args.batch_size)
+    print("\t\t Maximum epoch: ", args.num_epochs)
+    print("# ===================================== #\n")
 
-    for i in range(total_batch):
-        data_batch = pair_generation_tnf(choice(dataset))
-        source_batch = data_batch['source_image']
-        target_batch = data_batch['target_image']
-        theta_batch = data_batch['theta_GT']
-        for j in range(BATCH_SIZE-1):
-            rnd_source = data_batch['source_image']
-            source_batch = tf.concat((source_batch, rnd_source), 0)
-            rnd_target = data_batch['target_image']
-            target_batch = tf.concat((target_batch, rnd_target), 0)
-            rnd_theta = data_batch['theta_GT']
-            theta_batch = tf.concat((theta_batch, rnd_theta), 0)
+    for epoch in range(1, args.num_epochs + 1):
+        avg_cost_train = 0
+        total_batch = int(len(dataset) / args.batch_size)
+        import timeit
+        epoch_start = timeit.default_timer()
 
-        batch_xs_source, batch_xs_target, batch_ys = source_batch, target_batch, theta_batch
-        batch_xs_source = batch_xs_source.eval(session=sess)
-        batch_xs_target = batch_xs_target.eval(session=sess)
-        batch_ys = batch_ys.eval(session=sess)
+        for batch_idx in range(1, total_batch+1):
 
-        feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, y_train: batch_ys}
-        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
-        avg_cost_train += c / total_batch
-        print('batch_num: ', '%04d' % (i + 1), 'cost= ', '{:.9f}'.format(c))
-    print('Epoch: ', '%04d' % (epoch + 1), 'cost= ', '{:.9f}'.format(avg_cost_train))
+            # Create mini-batch
+            batch = choice(dataset)
+            batch['image'] = np.expand_dims(batch['image'], 0)
+            batch['theta'] = np.expand_dims(batch['theta'], 0)
+            for j in range(args.batch_size - 1):
+                temp = choice(dataset)
+                temp['image'] = np.expand_dims(temp['image'], 0)
+                temp['theta'] = np.expand_dims(temp['theta'], 0)
+                batch['image']=np.concatenate((batch['image'],temp['image']),0)
+                batch['theta']=np.concatenate((batch['theta'],temp['theta']),0)
 
-"""
-# TODO : checkpoint 저장 모듈 구현 
-    # remember best loss
-    is_best = test_loss < best_test_loss
-    best_test_loss = min(test_loss, best_test_loss)
-    save_checkpoint({
-        'epoch': epoch + 1,
-        'args': args,
-        'state_dict': model.state_dict(),
-        'best_test_loss': best_test_loss,
-        'optimizer': optimizer.state_dict(),
-    }, is_best, checkpoint_name)
-"""
+            data_batch = pair_generation_tnf(batch)
+            source_batch = data_batch['source_image']
+            target_batch = data_batch['target_image']
+            theta_batch = data_batch['theta_GT']
+
+            batch_xs_source, batch_xs_target, batch_ys = source_batch, target_batch, theta_batch
+
+            # Feed forward
+            feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, theta_GT: batch_ys}
+            c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+            avg_cost_train += c / total_batch
+            if (batch_idx)%10==0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\tLoss: {:.6f}'.format(epoch, batch_idx, total_batch, 100. * batch_idx / total_batch, c))
+
+        # Save checkpoint
+        if args.use_mse_loss:
+            checkpoint_name = join(args.trained_models_dir,
+                                   args.trained_models_fn + '_' + args.geometric_model + '_mse_loss_' + args.feature_extraction_cnn + '_' + args.training_dataset + '_epoch_' + str(epoch) + '.ckpt')
+        else:
+            checkpoint_name = join(args.trained_models_dir,
+                                   args.trained_models_fn + '_' + args.geometric_model + '_grid_loss_' + args.feature_extraction_cnn + '_' + args.training_dataset + '_epoch_' + str(epoch) + '.ckpt')
+
+        save_path = saver.save(sess, checkpoint_name)
+        print("Model saved in path: %s" % save_path)
+
+        epoch_end = timeit.default_timer()
+        t = epoch_end-epoch_start
+        print('Epoch: %04d' % (epoch + 1), 'cost= {:.9f}'.format(avg_cost_train),'Time per epoch: %dm %ds'%((t/60),(t%60)))
+
+# TODO: implement validation code
+
 print('Learning Finished!')

@@ -3,24 +3,25 @@ from tensorflow.contrib.slim.python.slim.nets import resnet_v2 as resnet
 from tensorflow.contrib.slim.python.slim.nets import vgg
 from tensorflow.python.util.all_util import make_all
 import tensorflow.contrib.slim as slim
-from model.resnet_modified import resnet_v2_101 as resnet_modified
+from model.nets import resnet101
+from model.nets import vgg16
 
 class FeatureExtraction:
-    def __init__(self, trainable=False, feature_extraction_cnn='resnet_v2'):
+    def __init__(self, trainable=False, feature_extraction_cnn='resnet101'):
         if feature_extraction_cnn == 'vgg':
-            self.model = vgg
+            self.model = vgg16
 
-        if feature_extraction_cnn == 'resnet_v2':
-            self.model = resnet
+        if feature_extraction_cnn == 'resnet101':
+            self.model = resnet101
 
     def __call__(self, image_batch):
-        if self.model == vgg:
+        if self.model == vgg16:
             with slim.arg_scope(vgg.vgg_arg_scope()):
-                features,_ = self.model.vgg_16(inputs=image_batch)
+                features,_ = vgg16(inputs=image_batch)
 
-        if self.model == resnet:
+        if self.model == resnet101:
             with slim.arg_scope(resnet.resnet_arg_scope()):
-                features,_ = resnet_modified(inputs=image_batch,num_classes=None)
+                features,_ = resnet101(inputs=image_batch,num_classes=None)
 
         return features
 
@@ -85,7 +86,7 @@ class FeatureRegression:
 
 class CNNGeometric:
     def __init__(self, output_dim=6,
-                 feature_extraction_cnn='resnet_v2',
+                 feature_extraction_cnn='resnet101',
                  return_correlation=False,
                  fr_feature_size=15,
                  fr_kernel_sizes=[7,5],
