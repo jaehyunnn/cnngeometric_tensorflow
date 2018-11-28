@@ -14,11 +14,12 @@
 
 This is the re-implementation of the paper: 
 
-I. Rocco, R. Arandjelović and J. Sivic. Convolutional neural network architecture for geometric matching. CVPR 2017 [[website](http://www.di.ens.fr/willow/research/cnngeometric/)][[arXiv](https://arxiv.org/abs/1703.05593)]
+I. Rocco, R. Arandjelović and J. Sivic. Convolutional neural network architecture for geometric matching. CVPR 2017 <br>
+[[website](http://www.di.ens.fr/willow/research/cnngeometric/)][[arXiv](https://arxiv.org/abs/1703.05593)]
 
 using Tensorflow <br>
-([for MatConvNet implementation click here](https://github.com/ignacio-rocco/cnngeometric_matconvnet))<br>
-([for Pytorch implementation click here](https://github.com/ignacio-rocco/cnngeometric_pytorch)).
+[[for MatConvNet implementation click here](https://github.com/ignacio-rocco/cnngeometric_matconvnet)]<br>
+[[for Pytorch implementation click here](https://github.com/ignacio-rocco/cnngeometric_pytorch)]
 
 ## References
 

@@ -23,7 +23,7 @@ def save_checkpoint(state, is_best, file):
     if model_dir != '' and not exists(model_dir):
         makedirs(model_dir)
     saver = tf.train.Saver()
-    ckpt_path = saver.save(state, file)
+    saver.save(state, file)
     if is_best:
         shutil.copyfile(file, join(model_dir, 'best_' + model_fn))
 

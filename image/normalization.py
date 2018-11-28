@@ -13,7 +13,7 @@ class NormalizeImageDict(object):
 
         lmin = float(sample[key].min())
         lmax = float(sample[key].max())
-        sample[key] = np.floor((sample[key] - lmin) / (lmax - lmin) * 255.)
+        sample[key] = np.floor(((sample[key]-lmin)/(lmax-lmin))*255.)
 
         return sample
 

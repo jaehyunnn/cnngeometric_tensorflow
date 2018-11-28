@@ -15,7 +15,7 @@ class TransformedGridLoss():
         self.pointTnf = PointTnf()
 
     def __call__(self, theta, theta_GT, batch_size):
-        P = tf.cast(tf.tile(self.P, [batch_size,1,1]),'float32') ### [batch_size, 1, 1]로 바꿔주기
+        P = tf.cast(tf.tile(self.P, [batch_size,1,1]),'float32')
 
         if self.geometric_model == "affine":
             P_prime = self.pointTnf.affPointTnf(theta, P)

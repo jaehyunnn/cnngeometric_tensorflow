@@ -174,8 +174,12 @@ with tf.Session() as sess:
         t = epoch_end-epoch_start
         print('Epoch: %03d' % (epoch), '\t Average cost= {:.9f}'.format(avg_cost_train),'\tTime per epoch: %dm %ds'%((t/60),(t%60)))
 
-print('Learning Finished!')
+print('Training Finished!')
+
+
 
 # TODO:
 #  - Implement validation code
-#  - Implement tps train code
+#  - Implement 'tps' train code
+#  - Implement demo.py
+#  - Implement eval_pf.py

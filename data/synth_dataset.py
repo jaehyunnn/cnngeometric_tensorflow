@@ -67,15 +67,14 @@ class SynthDataset:
                 theta = theta.reshape(2,3)
         
         # make arrays float tensor for subsequent processing
-        #image = tf.Variable(image, dtype=tf.float32)
-        #theta = tf.Variable(theta, dtype=tf.float32)
+        #image = np.array(image, dtype=tf.float32)
+        #theta = np.array(theta, dtype=tf.float32)
 
         # permute order of image to CHW
-        #image = tf.transpose(image,[2,0,1])
+        #image = np.transpose(image,[2,0,1])
 
         # Resize image using bilinear sampling with identity affine tnf
         if image.shape[0]!=self.out_h or image.shape[1]!=self.out_w:
-            #image = self.affineTnf(tf.Variable(tf.expand_dims(image, axis=0), trainable=False))
             image = self.affineTnf(np.expand_dims(image, axis=0))
             image = np.squeeze(image, 0)
         sample = {'image': image, 'theta': theta}

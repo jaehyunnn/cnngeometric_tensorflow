@@ -44,8 +44,6 @@ class FeatureCorrelation:
         :param w: width
         :return:
         """
-        #feature_A = tf.reshape(feature_A, [-1,2,2,512])
-        #feature_B = tf.reshape(feature_B, [-1,2,2,512])
         b,h,w,c = feature_A.get_shape().as_list()
 
 
@@ -122,7 +120,6 @@ class CNNGeometric:
         # normalize
         if self.normalize_matches:
             correlation = self.FeatureL2Norm(tf.nn.relu(correlation))
-        #        correlation = self.FeatureL2Norm(correlation)
         # do regression to tnf parameters theta
         theta = self.FeatureRegression(correlation)
 
