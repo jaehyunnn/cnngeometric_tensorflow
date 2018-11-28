@@ -2,15 +2,15 @@
 
 
 # CNNGeometric Re-implementation using TensorFlow
+<p align="center">
+    <img width="60%" src="https://blogs.rstudio.com/tensorflow/posts/2017-08-17-tensorflow-v13-released/tensorflow-logo.png">
+</p>
 
-<div style="text-align:center;">
-  <img src="https://blogs.rstudio.com/tensorflow/posts/2017-08-17-tensorflow-v13-released/tensorflow-logo.png"><br><br>
-</div>
 
 -----------------
-<div style="text-align:center;">
-  <img src="http://www.di.ens.fr/willow/research/cnngeometric/images/teaser.png"><br><br>
-</div>
+<p align="center">
+    <img src="http://www.di.ens.fr/willow/research/cnngeometric/images/teaser.png"><br><br>
+</p>
 
 This is the re-implementation of the paper: 
 
