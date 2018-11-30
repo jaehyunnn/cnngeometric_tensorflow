@@ -16,17 +16,14 @@ class BatchTensorToVars:
 
         return batch_var
 
-def save_checkpoint(state, is_best, file):
-    model_dir = dirname(file)
-    model_fn = basename(file)
-    # make dir if needed (should be non-empty)
-    if model_dir != '' and not exists(model_dir):
-        makedirs(model_dir)
-    saver = tf.train.Saver()
-    saver.save(state, file)
-    if is_best:
-        shutil.copyfile(file, join(model_dir, 'best_' + model_fn))
+def save_checkpoint(sess, saver, file):
+    save_path = saver.save(sess, file)
+    print("Checkpoint saved in path: %s" % save_path)
+    return save_path
 
+def reload_checkpoint(sess, saver, file):
+    saver.restore(sess, file)
+    print('Checkpoint reloaded from -- [' + file + ']')
 
 def str_to_bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):

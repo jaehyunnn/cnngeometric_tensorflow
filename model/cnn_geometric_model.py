@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib.slim.python.slim.nets import resnet_v2 as resnet
 from tensorflow.contrib.slim.python.slim.nets import vgg
-from tensorflow.python.util.all_util import make_all
 import tensorflow.contrib.slim as slim
 from model.nets import resnet101
 from model.nets import vgg16

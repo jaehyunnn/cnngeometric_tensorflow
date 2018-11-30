@@ -1,19 +1,20 @@
 import os
 import sys
-from skimage import io
+from skimage import io, transform
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 class GeometricTnf:
-    def __init__(self, geometric_model='affine', out_h=240, out_w=240):
+    def __init__(self, geometric_model='affine', out_h=240, out_w=240, resize=False):
         self.out_h = out_h
         self.out_w = out_w
-
+        self.resize = resize
         if geometric_model=='affine':
             self.gridGen = AffineGridGen(out_h, out_w)
 
-        self.theta_identity = np.expand_dims(np.array([[1,0,0],[0,1,0]]),0).astype(np.float32)
+        self.theta_identity = np.expand_dims(np.array([[1,0,0],[0,1,0]]),0).astype('float32')
 
     def __call__(self, image_batch, theta_batch=None, padding_factor=1.0, crop_factor=1.0):
         B, H, W, C = image_batch.shape
@@ -21,75 +22,62 @@ class GeometricTnf:
             theta_batch = self.theta_identity
             theta_batch = np.tile(theta_batch, [B,1,1])
 
+        if self.resize:
+            # Resize
+            if image_batch.dtype == 'uint8':
+                image_batch = np.float32(image_batch)/255.
+                image_batch = transform.resize(image_batch, [B, self.out_h, self.out_w, C])
+            elif image_batch.dtype == 'float32':
+                try:
+                    image_batch = transform.resize(image_batch, [B, self.out_h, self.out_w, C])
+                except:
+                    image_batch = transform.resize(np.uint8(image_batch), [B, self.out_h, self.out_w, C])
+                    image_batch = np.float32(image_batch)/255.
+
         sampling_grid = self.gridGen(theta_batch)
 
-        x_s = sampling_grid[:, 0, :, :]*padding_factor*crop_factor  # transformed x
-        y_s = sampling_grid[:, 1, :, :]*padding_factor*crop_factor  # transformed y
+        x_s = sampling_grid[:, :, :, 0:1].squeeze()
+        y_s = sampling_grid[:, :, :, 1:2].squeeze()
+
+        x = ((x_s + 1.) * self.out_w) * 0.5 * padding_factor * crop_factor
+        y = ((y_s + 1.) * self.out_h) * 0.5 * padding_factor * crop_factor
 
         # sample transformed image
-        warped_image_batch = self.bilinear_sampler(image_batch, x_s, y_s)
+        warped_image_batch = self.bilinear_sampler(image_batch, x, y)
         return warped_image_batch
 
-    def get_pixel_value(self, img, x, y):
-        B, H, W, C = img.shape
-        batch_idx = np.arange(0, B)
-        batch_idx = np.reshape(batch_idx, (B, 1, 1))
-        b = np.tile(batch_idx, (1, x.shape[1], x.shape[2]))
-
-        indices = np.stack([b, y, x], 3)
-        pixel_value = np.take(img, indices)
-
-        return pixel_value.astype('float32')
 
     def bilinear_sampler(self, img, x, y):
         B, H, W, C = img.shape
-        max_y = np.int32(H - 1)
-        max_x = np.int32(W - 1)
-        zero = np.zeros([], dtype='int32')
-
-        # rescale x and y to [0, W-1 or H-1]
-        x = np.float32(x)
-        y = np.float32(y)
-        x = 0.5 * ((x + 1) * np.float32(max_x - 1))
-        y = 0.5 * ((y + 1) * np.float32(max_y - 1))
-
-        # grab 4 nearest corner points for each (x_i, y_i)
-        x0 = np.int32(np.floor(x))
+        x0 = np.floor(x).astype(np.int64)
         x1 = x0 + 1
-        y0 = np.int32(np.floor(y))
+        y0 = np.floor(y).astype(np.int64)
         y1 = y0 + 1
 
-        # clip to range [0, H-1 or W-1] to not violate img boundaries
-        x0 = np.clip(x0, zero, max_x)
-        x1 = np.clip(x1, zero, max_x)
-        y0 = np.clip(y0, zero, max_y)
-        y1 = np.clip(y1, zero, max_y)
+        x0 = np.clip(x0, 0, self.out_w - 1)
+        x1 = np.clip(x1, 0, self.out_w - 1)
+        y0 = np.clip(y0, 0, self.out_h - 1)
+        y1 = np.clip(y1, 0, self.out_h - 1)
 
-        # get pixel value at corner coords
-        Ia = self.get_pixel_value(img, x0, y0)
-        Ib = self.get_pixel_value(img, x0, y1)
-        Ic = self.get_pixel_value(img, x1, y0)
-        Id = self.get_pixel_value(img, x1, y1)
+        Ia = img[np.arange(B)[:, None, None], y0, x0]
+        Ib = img[np.arange(B)[:, None, None], y1, x0]
+        Ic = img[np.arange(B)[:, None, None], y0, x1]
+        Id = img[np.arange(B)[:, None, None], y1, x1]
 
-        # recast as float for delta calculation
-        x0 = np.float32(x0)
-        x1 = np.float32(x1)
-        y0 = np.float32(y0)
-        y1 = np.float32(y1)
-
-        # calculate deltas
         wa = (x1 - x) * (y1 - y)
         wb = (x1 - x) * (y - y0)
         wc = (x - x0) * (y1 - y)
         wd = (x - x0) * (y - y0)
 
-        wa = np.tile(np.expand_dims(wa, 3), [1, 1, 1, C])
-        wb = np.tile(np.expand_dims(wb, 3), [1, 1, 1, C])
-        wc = np.tile(np.expand_dims(wc, 3), [1, 1, 1, C])
-        wd = np.tile(np.expand_dims(wd, 3), [1, 1, 1, C])
+        wa = np.expand_dims(wa, axis=3)
+        wb = np.expand_dims(wb, axis=3)
+        wc = np.expand_dims(wc, axis=3)
+        wd = np.expand_dims(wd, axis=3)
 
-        # compute output
-        out = (wa*Ia) + (wb*Ib) + (wc*Ic) + (wd*Id)
+        out = wa * Ia + wb * Ib + wc * Ic + wd * Id
+
+        if out.dtype == 'uint8':
+            out = np.float32(out)/255.
 
         return out
 
@@ -117,10 +105,10 @@ class SynthPairTnf:
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
 
         # get cropped image
-        cropped_image_batch = self.rescalingTnf(image_batch, None, self.padding_factor, self.crop_factor)
+        cropped_image_batch = self.rescalingTnf(image_batch, None, self.padding_factor,self.crop_factor)
+
         # get transformed image
-        warped_image_batch = self.geometricTnf(image_batch, theta_batch,
-                                               self.padding_factor, self.crop_factor)
+        warped_image_batch = self.geometricTnf(image_batch, theta_batch, self.padding_factor, self.crop_factor)
 
         return {'source_image': cropped_image_batch, 'target_image': warped_image_batch, 'theta_GT': theta_batch}
 
@@ -162,31 +150,25 @@ class AffineGridGen:
         except:
             theta = np.expand_dims(theta, 0)
             batch_size, row_1, row_2 = theta.shape
-        out_size = [batch_size, self.out_h, self.out_w, self.out_ch]
 
         # create normalized 2D grid
         x = np.linspace(-1.0, 1.0, self.out_w)
         y = np.linspace(-1.0, 1.0, self.out_h)
         x_t, y_t = np.meshgrid(x, y)
 
-        # flatten
-        x_t_flat = np.reshape(x_t, [-1])
-        y_t_flat = np.reshape(y_t, [-1])
-
         # reshape to homogeneous form [x_t, y_t, 1]
-        ones = np.ones_like(x_t_flat)
-        sampling_grid = np.stack([x_t_flat, y_t_flat, ones])
-        # repeat grid batch_size times
-        sampling_grid = np.expand_dims(sampling_grid, axis=0)
-        sampling_grid = np.tile(sampling_grid, [batch_size, 1, 1])
+        ones = np.ones(np.prod(x_t.shape))
+        sampling_grid = np.vstack([x_t.flatten(), y_t.flatten(), ones])
 
-        # cast to float32 (required for matmul)
-        theta = theta.astype('float32')
-        sampling_grid = sampling_grid.astype('float32')
+        # repeat grid num_batch times
+        sampling_grid = np.resize(sampling_grid, (batch_size, 3, self.out_h*self.out_w))
 
-        # transform the sampling grid - batch multiply
-        batch_grids = np.matmul(theta, sampling_grid) # batch grid has shape (batch_size, 2, H*W)
+        # transform the sampling grid i.e. batch multiply
+        batch_grids = np.matmul(theta, sampling_grid)
+        # batch grid has shape (num_batch, 2, H*W)
 
-        # reshape to (batch_size, H, W, 2)
-        batch_grids = np.reshape(batch_grids, [batch_size, 2, out_size[1], out_size[2]])
+        # reshape to (num_batch, height, width, 2)
+        batch_grids = batch_grids.reshape(batch_size, 2, self.out_h, self.out_w)
+        batch_grids = np.moveaxis(batch_grids, 1, -1)
+
         return batch_grids

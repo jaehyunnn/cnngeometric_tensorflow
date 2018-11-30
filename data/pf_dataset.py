@@ -4,7 +4,7 @@ import tensorflow as tf
 from skimage import io
 import pandas as pd
 import numpy as np
-from geotnf.transformation_complete import GeometricTnf
+from geotnf.transformation import GeometricTnf
 
 class PFDataset():
     
@@ -31,8 +31,7 @@ class PFDataset():
         self.point_B_coords = self.train_data.iloc[:, 22:].as_matrix().astype('float')
         self.training_image_path = training_image_path         
         self.transform = transform
-        # no cuda as dataset is called from CPU threads in dataloader and produces confilct
-        self.affineTnf = GeometricTnf(out_h=self.out_h, out_w=self.out_w, use_cuda = False) 
+        self.affineTnf = GeometricTnf(out_h=self.out_h, out_w=self.out_w)
               
     def __len__(self):
         return len(self.train_data)

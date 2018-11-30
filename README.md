@@ -21,6 +21,12 @@ using Tensorflow <br>
 [[for MatConvNet implementation click here](https://github.com/ignacio-rocco/cnngeometric_matconvnet)]<br>
 [[for Pytorch implementation click here](https://github.com/ignacio-rocco/cnngeometric_pytorch)]
 
+## TODO
+-[X] Implement 'demo_notebook.ipynb'
+-[ ] Implement 'demo.py'
+-[ ] Implement TPS
+-[ ] Implement 'eval_pf.py'
+
 ## References
 
 [1] I. Rocco, et al. "Convolutional Neural Network Architecture for Geometric Matching." in CVPR 2017

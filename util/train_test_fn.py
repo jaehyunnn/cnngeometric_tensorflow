@@ -1,35 +1,51 @@
 from __future__ import print_function, division
+import numpy as np
+from random import choice
+import timeit
+import matplotlib.pyplot as plt
 
-def train(epoch,model,loss_fn,optimizer,dataloader,pair_generation_tnf,use_cuda=True,log_interval=50):
-    model.train()
-    train_loss = 0
-    for batch_idx, batch in enumerate(dataloader):
-        optimizer.minimize(loss)
-        tnf_batch = pair_generation_tnf(batch)
-        theta = model(tnf_batch)
-        loss = loss_fn(theta,tnf_batch['theta_GT'])
-        #loss.backward()
-        #optimizer.step()
-        #train_loss += loss.data.cpu().numpy()[0]
-        if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\tLoss: {:.6f}'.format(
-                epoch, batch_idx , len(dataloader),
-                100. * batch_idx / len(dataloader), loss.data[0]))
-    train_loss /= len(dataloader)
-    print('Train set: Average loss: {:.4f}'.format(train_loss))
-    return train_loss
+def train(epoch,cost,optimizer,dataset,pair_generation_tnf, sess, batch_size, source_train, target_train, theta_GT):
+    epoch_start = timeit.default_timer()
+    avg_cost_train = 0
+    total_batch = int(len(dataset) / batch_size)
+    for batch_idx in range(1, total_batch + 1):
+        # Create mini-batch
+        batch = choice(dataset)
+        batch['image'] = np.expand_dims(batch['image'], 0)
+        batch['theta'] = np.expand_dims(batch['theta'], 0)
 
-def test(model,loss_fn,dataloader,pair_generation_tnf,use_cuda=True):
-    model.eval()
-    test_loss = 0
-    for batch_idx, batch in enumerate(dataloader):
-        tnf_batch = pair_generation_tnf(batch)
-        theta = model(tnf_batch)
-        loss = loss_fn(theta,tnf_batch['theta_GT'])
-        #test_loss += loss.data.cpu().numpy()[0]
+        for j in range(batch_size - 1):
+            temp = choice(dataset)
+            temp['image'] = np.expand_dims(temp['image'], 0)
+            temp['theta'] = np.expand_dims(temp['theta'], 0)
+            batch['image'] = np.concatenate((batch['image'], temp['image']), 0)
+            batch['theta'] = np.concatenate((batch['theta'], temp['theta']), 0)
 
-    test_loss /= len(dataloader)
-    print('Test set: Average loss: {:.4f}'.format(test_loss))
-    return test_loss
+        data_batch = pair_generation_tnf(batch)
+        source_batch = data_batch['source_image']
+        target_batch = data_batch['target_image']
+        theta_batch = data_batch['theta_GT']
 
-# Not re-implemented
+        batch_xs_source, batch_xs_target, batch_ys = source_batch, target_batch, theta_batch
+
+        """
+        fig, axs = plt.subplots(1, 2)
+        axs[0].imshow(source_batch[0])
+        axs[0].set_title('source')
+        axs[1].imshow(target_batch[0])
+        axs[1].set_title('target')
+        plt.show()
+        """
+
+        # Feed forward
+        feed_dict = {source_train: batch_xs_source, target_train: batch_xs_target, theta_GT: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost_train += c / total_batch
+        if (batch_idx) % 1 == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t\tLoss: {:.6f}'.format(epoch, batch_idx, total_batch,
+                                                                             100. * batch_idx / total_batch, c))
+    epoch_end = timeit.default_timer()
+    t = epoch_end - epoch_start
+    print('Train set: Average loss= {:.4f}'.format(avg_cost_train),
+          '\tTime per epoch: %dm %ds' % ((t / 60), (t % 60)))
+    return avg_cost_train

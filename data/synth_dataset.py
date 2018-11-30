@@ -6,6 +6,9 @@ from skimage import io
 import pandas as pd
 import numpy as np
 from geotnf.transformation import GeometricTnf
+import matplotlib.pyplot as plt
+
+
 
 class SynthDataset:
     """
@@ -38,7 +41,7 @@ class SynthDataset:
         self.training_image_path = training_image_path
         self.transform = transform
         self.geometric_model = geometric_model
-        self.affineTnf = GeometricTnf(out_h=self.out_h, out_w=self.out_w)
+        self.affineTnf = GeometricTnf(out_h=self.out_h, out_w=self.out_w, resize=True)
         
     def __len__(self):
         return len(self.train_data)
