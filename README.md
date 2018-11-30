@@ -22,10 +22,11 @@ using Tensorflow <br>
 [[for Pytorch implementation click here](https://github.com/ignacio-rocco/cnngeometric_pytorch)]
 
 ## TODO
--[X] Implement 'demo_notebook.ipynb'
--[ ] Implement 'demo.py'
--[ ] Implement TPS
--[ ] Implement 'eval_pf.py'
+
+- [X] Implement 'demo_notebook.ipynb'
+- [ ] Implement 'demo.py'
+- [ ] Implement TPS
+- [ ] Implement 'eval_pf.py'
 
 ## References
 
