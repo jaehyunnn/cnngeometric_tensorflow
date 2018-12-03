@@ -7,10 +7,11 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 class GeometricTnf:
-    def __init__(self, geometric_model='affine', out_h=240, out_w=240, resize=False):
+    def __init__(self, geometric_model='affine', out_h=240, out_w=240, resize=False, crop=False):
         self.out_h = out_h
         self.out_w = out_w
         self.resize = resize
+        self.crop = crop
         if geometric_model=='affine':
             self.gridGen = AffineGridGen(out_h, out_w)
 
@@ -34,30 +35,37 @@ class GeometricTnf:
                     image_batch = transform.resize(np.uint8(image_batch), [B, self.out_h, self.out_w, C])
                     image_batch = np.float32(image_batch)/255.
 
-        sampling_grid = self.gridGen(theta_batch)
+
+        sampling_grid = self.gridGen(theta_batch, image_batch.shape[1], image_batch.shape[2])
 
         x_s = sampling_grid[:, :, :, 0:1].squeeze()
         y_s = sampling_grid[:, :, :, 1:2].squeeze()
 
-        x = ((x_s + 1.) * self.out_w) * 0.5 * padding_factor * crop_factor
-        y = ((y_s + 1.) * self.out_h) * 0.5 * padding_factor * crop_factor
+        x = ((x_s + 1.) * W) * 0.5
+        y = ((y_s + 1.) * H) * 0.5
 
         # sample transformed image
         warped_image_batch = self.bilinear_sampler(image_batch, x, y)
+
+        if self.crop:
+            b,h,w,c = warped_image_batch.shape
+            warped_image_batch = warped_image_batch[:,int((h/2)-(self.out_h/2)):int((h/2)+(self.out_h/2)),int((w/2)-(self.out_w/2)):int((w/2)+(self.out_w/2)),:]
+
         return warped_image_batch
 
 
     def bilinear_sampler(self, img, x, y):
         B, H, W, C = img.shape
+
         x0 = np.floor(x).astype(np.int64)
         x1 = x0 + 1
         y0 = np.floor(y).astype(np.int64)
         y1 = y0 + 1
 
-        x0 = np.clip(x0, 0, self.out_w - 1)
-        x1 = np.clip(x1, 0, self.out_w - 1)
-        y0 = np.clip(y0, 0, self.out_h - 1)
-        y1 = np.clip(y1, 0, self.out_h - 1)
+        x0 = np.clip(x0, 0, W - 1)
+        x1 = np.clip(x1, 0, W - 1)
+        y0 = np.clip(y0, 0, H - 1)
+        y1 = np.clip(y1, 0, H - 1)
 
         Ia = img[np.arange(B)[:, None, None], y0, x0]
         Ib = img[np.arange(B)[:, None, None], y1, x0]
@@ -76,10 +84,7 @@ class GeometricTnf:
 
         out = wa * Ia + wb * Ib + wc * Ic + wd * Id
 
-        if out.dtype == 'uint8':
-            out = np.float32(out)/255.
-
-        return out
+        return np.float32(out)
 
 class SynthPairTnf:
     def __init__(self,geometric_model='affine', crop_factor=9/16, output_size=(240,240), padding_factor = 0.5):
@@ -89,8 +94,8 @@ class SynthPairTnf:
         self.crop_factor = crop_factor
         self.padding_factor = padding_factor
         self.out_h, self.out_w = output_size
-        self.rescalingTnf = GeometricTnf('affine', self.out_h, self.out_w)
-        self.geometricTnf = GeometricTnf(geometric_model, self.out_h, self.out_w)
+        self.rescalingTnf = GeometricTnf('affine', self.out_h, self.out_w, crop=True)
+        self.geometricTnf = GeometricTnf(geometric_model, self.out_h, self.out_w, crop=True)
 
     def __call__(self, batch):
         image_batch, theta_batch = batch['image'], batch['theta']
@@ -101,14 +106,26 @@ class SynthPairTnf:
             B, H, W, C = image_batch.shape
             theta_batch = np.expand_dims(theta_batch, 0)
 
-        # generate symmetrically padded image for bigger sampling region
+        # generate symmetrically padded image for bigger sampling region (padded image)
         image_batch = self.symmetricImagePad(image_batch, self.padding_factor)
 
-        # get cropped image
-        cropped_image_batch = self.rescalingTnf(image_batch, None, self.padding_factor,self.crop_factor)
+        # get cropped image (source)
+        cropped_image_batch = self.rescalingTnf(image_batch, None)
 
-        # get transformed image
-        warped_image_batch = self.geometricTnf(image_batch, theta_batch, self.padding_factor, self.crop_factor)
+        # get transformed image (target)
+        warped_image_batch = self.geometricTnf(image_batch, theta_batch)
+
+        """
+        N_subplots = 3
+        fig, axs = plt.subplots(1, N_subplots)
+        axs[0].imshow(image_batch[0])
+        axs[0].set_title('padded')
+        axs[1].imshow(cropped_image_batch[0])
+        axs[1].set_title('cropped')
+        axs[2].imshow(warped_image_batch[0])
+        axs[2].set_title('warped')
+        plt.show()
+        """
 
         return {'source_image': cropped_image_batch, 'target_image': warped_image_batch, 'theta_GT': theta_batch}
 
@@ -119,7 +136,7 @@ class SynthPairTnf:
             image_batch = np.expand_dims(image_batch, 0)
             B, H, W, C = image_batch.shape
 
-        pad_arg = ((240, 240), (320, 320))
+        pad_arg = ((int(H*padding_factor), int(H*padding_factor)), (int(W*padding_factor), int(W*padding_factor)))
 
         temp_c1 = np.expand_dims(np.expand_dims(np.pad(image_batch[0,:,:,0], pad_arg, "symmetric"),axis=0),axis=3)
         temp_c2 = np.expand_dims(np.expand_dims(np.pad(image_batch[0, :, :, 1], pad_arg, "symmetric"),axis=0),axis=3)
@@ -144,7 +161,7 @@ class AffineGridGen:
         self.out_w = out_w
         self.out_ch = out_ch
 
-    def __call__(self, theta):
+    def __call__(self, theta, H, W):
         try:
             batch_size, row_1, row_2 = theta.shape
         except:
@@ -152,8 +169,8 @@ class AffineGridGen:
             batch_size, row_1, row_2 = theta.shape
 
         # create normalized 2D grid
-        x = np.linspace(-1.0, 1.0, self.out_w)
-        y = np.linspace(-1.0, 1.0, self.out_h)
+        x = np.linspace(-1.0, 1.0, W)
+        y = np.linspace(-1.0, 1.0, H)
         x_t, y_t = np.meshgrid(x, y)
 
         # reshape to homogeneous form [x_t, y_t, 1]
@@ -161,14 +178,14 @@ class AffineGridGen:
         sampling_grid = np.vstack([x_t.flatten(), y_t.flatten(), ones])
 
         # repeat grid num_batch times
-        sampling_grid = np.resize(sampling_grid, (batch_size, 3, self.out_h*self.out_w))
+        sampling_grid = np.resize(sampling_grid, (batch_size, self.out_ch, H*W))
 
         # transform the sampling grid i.e. batch multiply
         batch_grids = np.matmul(theta, sampling_grid)
         # batch grid has shape (num_batch, 2, H*W)
 
         # reshape to (num_batch, height, width, 2)
-        batch_grids = batch_grids.reshape(batch_size, 2, self.out_h, self.out_w)
+        batch_grids = batch_grids.reshape(batch_size, 2, H, W)
         batch_grids = np.moveaxis(batch_grids, 1, -1)
 
         return batch_grids
