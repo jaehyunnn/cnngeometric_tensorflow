@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.contrib.slim.python.slim.nets import resnet_v2 as resnet
 from tensorflow.contrib.slim.python.slim.nets import vgg
 import tensorflow.contrib.slim as slim
+import numpy as np
 from model.nets import resnet101
 from model.nets import vgg16
 
@@ -9,42 +10,35 @@ class FeatureExtraction:
     def __init__(self, trainable=False, feature_extraction_cnn='resnet101'):
         if feature_extraction_cnn == 'vgg':
             self.model = vgg16
-
         if feature_extraction_cnn == 'resnet101':
             self.model = resnet101
 
     def __call__(self, image_batch):
         if self.model == vgg16:
             with slim.arg_scope(vgg.vgg_arg_scope()):
-                features,_ = vgg16(inputs=image_batch)
-
+                features,_ = self.model(inputs=image_batch)
         if self.model == resnet101:
             with slim.arg_scope(resnet.resnet_arg_scope()):
-                features,_ = resnet101(inputs=image_batch,num_classes=None)
-
+                features,_ = self.model(inputs=image_batch,num_classes=None)
         return features
 
 class FeatureL2Norm:
     def __init__(self):
         pass
-    def __call__(self, features):
-        features = tf.nn.l2_normalize(features, epsilon=(1e-6))
-        return features
+    def __call__(self, feature):
+        epsilon = 1e-6
+        norm = tf.pow(tf.reduce_sum(tf.pow(feature, 2), 1) + epsilon, 0.5)
+        norm = tf.expand_dims(norm, 1)
+        norm = tf.tile(norm, [1,feature.get_shape().as_list()[1],1,1])
+
+        return tf.divide(feature, norm)
 
 class FeatureCorrelation:
     def __init__(self):
         pass
 
     def __call__(self, feature_A, feature_B):
-        """
-        :param b: batch_size
-        :param c: channel(amount of filters)
-        :param h: height
-        :param w: width
-        :return:
-        """
         b,h,w,c = feature_A.get_shape().as_list()
-
 
         feature_A = tf.transpose(feature_A, [0,2,1,3])
         feature_A = tf.reshape(feature_A, [-1,h*w,c])
@@ -58,25 +52,27 @@ class FeatureCorrelation:
         return correlation_tensor
 
 class FeatureRegression:
-    def __init__(self, output_dim=6, batch_normalization=True, kernel_sizes=[7,5], channels=[128,64], feature_size=15):
+    def __init__(self, output_dim=6, batch_normalization=True, kernel_sizes=[7,5], channels=[128,64], feature_size=15, training = False):
         self.output_dim = output_dim
         self.batch_normalization = batch_normalization
         self.kernel_sizes = kernel_sizes
         self.channels = channels
         self.feature_size = feature_size
+        self.training = training
 
     def __call__(self, x):
         conv1 = tf.layers.conv2d(inputs=x, kernel_size=[self.kernel_sizes[0],self.kernel_sizes[0]], filters=self.channels[0], padding='SAME', activation=None)
         if self.batch_normalization:
-            conv1 = tf.layers.batch_normalization(conv1)
+            conv1 = tf.layers.batch_normalization(conv1, training=self.training)
         conv1 = tf.nn.relu(conv1)
 
         conv2 = tf.layers.conv2d(inputs=conv1, kernel_size=[self.kernel_sizes[1],self.kernel_sizes[1]], filters=self.channels[1], padding='SAME', activation=None)
         if self.batch_normalization:
-            conv2 = tf.layers.batch_normalization(conv2)
+            conv2 = tf.layers.batch_normalization(conv2, training=self.training)
         conv2 = tf.nn.relu(conv2)
 
         flat = tf.layers.flatten(conv2)
+
         out = tf.layers.dense(inputs=flat, units=self.output_dim)
 
         return out
@@ -91,7 +87,8 @@ class CNNGeometric:
                  feature_self_matching=False,
                  normalize_features=True, normalize_matches=True,
                  batch_normalization=True,
-                 trainable=False):
+                 trainable=False,
+                 training = False):
         self.feature_self_matching = feature_self_matching
         self.normalize_features = normalize_features
         self.normalize_matches = normalize_matches
@@ -103,7 +100,8 @@ class CNNGeometric:
                                                    feature_size=fr_feature_size,
                                                    kernel_sizes=fr_kernel_sizes,
                                                    channels=fr_channels,
-                                                   batch_normalization=batch_normalization)
+                                                   batch_normalization=batch_normalization,
+                                                   training=training)
         self.FeatureL2Norm = FeatureL2Norm()
 
     def __call__(self, tnf_batch):

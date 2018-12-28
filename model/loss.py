@@ -20,6 +20,7 @@ class TransformedGridLoss():
         if self.geometric_model == "affine":
             P_prime = self.pointTnf.affPointTnf(theta, P)
             P_prime_GT = self.pointTnf.affPointTnf(theta_GT, P)
+
         else:
             print("Sorry, Cannot use TPS transformation not yet")
 

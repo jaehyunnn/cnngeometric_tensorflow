@@ -10,13 +10,13 @@ class PointTnf:
         batch_size = theta_mat.get_shape().as_list()[0]
 
         warped_points = tf.matmul(theta_mat[:,:,:2], points)
+        warped_points = tf.matmul(theta_mat[:, :, :2], points)
         tile_arg_1 = np.divide(np.array(warped_points.get_shape().as_list())[1],
-                             np.array(tf.expand_dims(theta_mat[:, :, 2], axis=2).get_shape().as_list())[1]).astype('int32')
+                               np.array(tf.expand_dims(theta_mat[:, :, 2], axis=2).get_shape().as_list())[1]).astype('int32')
         tile_arg_2 = np.divide(np.array(warped_points.get_shape().as_list())[2],
                                np.array(tf.expand_dims(theta_mat[:, :, 2], axis=2).get_shape().as_list())[2]).astype('int32')
 
-        warped_points += tf.tile(tf.expand_dims(theta_mat[:,:,2], axis=2)
-                                 ,[1, tile_arg_1, tile_arg_2])  #[batch_size, tile_1, tile_2]로 바꿔주기
+        warped_points += tf.tile(tf.expand_dims(theta_mat[:, :, 2], axis=2), [1, tile_arg_1, tile_arg_2])
         return warped_points
 
 def PointsToUnitCoords(P, im_size):

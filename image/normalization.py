@@ -8,8 +8,7 @@ class NormalizeImageDict(object):
     def __call__(self, sample):
         for key in self.image_keys:
             if self.normalizeRange:
-                # sample[key] /= 255.0
-                pass
+                sample[key] /= 255.0
 
         mean = [0.485, 0.456, 0.406]
         std = [0.229, 0.224, 0.225]

@@ -33,18 +33,18 @@ def vgg16(inputs,
           reuse=tf.AUTO_REUSE,
           scope='vgg_16'):
   with variable_scope.variable_scope(scope, 'vgg_16', [inputs], reuse=reuse) as sc:
-    end_points_collection = sc.original_name_scope + '_end_points'
-    # Collect outputs for conv2d, fully_connected and max_pool2d.
-    with arg_scope([layers.conv2d, layers_lib.fully_connected, layers_lib.max_pool2d],outputs_collections=end_points_collection):
-      net = layers_lib.repeat(
-          inputs, 2, layers.conv2d, 64, [3, 3], scope='conv1')
-      net = layers_lib.max_pool2d(net, [2, 2], scope='pool1')
-      net = layers_lib.repeat(net, 2, layers.conv2d, 128, [3, 3], scope='conv2')
-      net = layers_lib.max_pool2d(net, [2, 2], scope='pool2')
-      net = layers_lib.repeat(net, 3, layers.conv2d, 256, [3, 3], scope='conv3')
-      net = layers_lib.max_pool2d(net, [2, 2], scope='pool3')
-      net = layers_lib.repeat(net, 3, layers.conv2d, 512, [3, 3], scope='conv4')
-      net = layers_lib.max_pool2d(net, [2, 2], scope='pool4')
+      end_points_collection = sc.original_name_scope + '_end_points'
+      # Collect outputs for conv2d, fully_connected and max_pool2d.
+      with arg_scope([layers.conv2d, layers_lib.fully_connected, layers_lib.max_pool2d],outputs_collections=end_points_collection):
+          net = layers_lib.repeat(
+              inputs, 2, layers.conv2d, 64, [3, 3], scope='conv1')
+          net = layers_lib.max_pool2d(net, [2, 2], scope='pool1')
+          net = layers_lib.repeat(net, 2, layers.conv2d, 128, [3, 3], scope='conv2')
+          net = layers_lib.max_pool2d(net, [2, 2], scope='pool2')
+          net = layers_lib.repeat(net, 3, layers.conv2d, 256, [3, 3], scope='conv3')
+          net = layers_lib.max_pool2d(net, [2, 2], scope='pool3')
+          net = layers_lib.repeat(net, 3, layers.conv2d, 512, [3, 3], scope='conv4')
+          net = layers_lib.max_pool2d(net, [2, 2], scope='pool4')
 
       # Convert end_points_collection into a end_point dict.
       end_points = utils.convert_collection_to_dict(end_points_collection)

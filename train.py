@@ -11,7 +11,9 @@ from geotnf.transformation import SynthPairTnf
 from image.normalization import NormalizeImageDict
 from util.train_test_fn import train
 from util.tf_util import save_checkpoint, str_to_bool
+import warnings
 
+warnings.filterwarnings('ignore')
 
 """
 
@@ -64,7 +66,7 @@ if args.training_dataset == 'pascal':
 # CNN model and loss
 print('Creating CNN model...')
 
-model = CNNGeometric(feature_extraction_cnn=args.feature_extraction_cnn)
+model = CNNGeometric(feature_extraction_cnn=args.feature_extraction_cnn, training=False)
 
 if args.use_mse_loss:
     print('Using MSE loss...')
@@ -121,7 +123,6 @@ with tf.Session() as sess:
     for epoch in range(1, args.num_epochs + 1):
         train_loss = train(epoch=epoch, cost=cost, optimizer=optimizer, dataset=dataset, pair_generation_tnf=pair_generation_tnf,
                            sess=sess, batch_size=args.batch_size, source_train=source_train, target_train=target_train, theta_GT=theta_GT)
-
         # Save checkpoint
         if args.use_mse_loss:
             checkpoint_name = join(args.trained_models_dir,
